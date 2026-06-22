@@ -1,0 +1,40 @@
+node_modules/
+dist/
+build/
+.env
+.DS_Store
+*.log
+
+# Archivos temporales y de trabajo
+*.txt
+*.swp
+*.py
+test-git.js
+install.sh
+
+# Planos y documentos
+*.xlsx
+*.xlsb
+*.docx
+*.mdb
+~$*
+
+# Carpeta de uploads
+backend/uploads/
+frontend/public/planos/
+
+# Scripts de inspección y utilidades
+backend/cleanup_retirement_dates.js
+backend/encrypt_existing_smtp.js
+backend/get_sample_records.js
+backend/inspect_*.js
+backend/list_*.js
+backend/print_smtp_config.js
+backend/remove_contratista_db.js
+backend/reset_*.js
+backend/test_greeting.js
+frontend/check_syntax.js
+frontend/inject_print.py
+frontend/inspect_*.js
+frontend/fix_reportes.py
+frontend/extract_history.py
