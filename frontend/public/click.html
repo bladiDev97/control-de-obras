@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Buscador de Coordenadas</title>
+  <style>
+    body { margin: 0; padding: 20px; text-align: center; background: #333; color: white; font-family: Arial; }
+    .container {
+      position: relative;
+      display: inline-block;
+      width: 21.59cm;
+      height: 27.94cm;
+      background-image: url('formato_interrupcion.png');
+      background-size: cover;
+      cursor: crosshair;
+      border: 2px solid #fff;
+    }
+  </style>
+</head>
+<body>
+  <h2>Haz clic exactamente donde quieres que empiece el texto</h2>
+  <p>Te mostrará un cuadro con los porcentajes exactos que debes pasarme.</p>
+  <div class="container" id="imgContainer"></div>
+
+  <script>
+    document.getElementById('imgContainer').addEventListener('click', function(e) {
+      var rect = this.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      var y = e.clientY - rect.top;
+      var percentX = (x / rect.width) * 100;
+      var percentY = (y / rect.height) * 100;
+      
+      alert("top: " + percentY.toFixed(2) + "%\nleft: " + percentX.toFixed(2) + "%");
+    });
+  </script>
+</body>
+</html>
