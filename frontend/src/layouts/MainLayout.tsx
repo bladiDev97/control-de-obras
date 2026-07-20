@@ -70,9 +70,6 @@ export default function MainLayout() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body2" sx={{ color: '#e2e8f0', fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>
-              bladi.PigeonSave@gmail.com
-            </Typography>
             <Avatar sx={{ bgcolor: '#ffffff', color: 'var(--verde-cfe)', width: 32, height: 32, fontSize: '0.85rem', fontWeight: 'bold' }}>
               BL
             </Avatar>
