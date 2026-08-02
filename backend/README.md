@@ -1,98 +1,157 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🏗️ Control de Obras - Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Servicio backend en **NestJS** para el sistema de **Control de Obras**. Administra el flujo completo de obras, contratos, estimaciones, asignaciones, bitácoras de campo, personal y áreas de trabajo, persistiendo la información en **AWS DynamoDB** (tanto en modo **Desarrollo** con DynamoDB Local como en **Producción** con AWS DynamoDB Cloud) a través de **TypeDORM**.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 🛠️ Tecnologías y Arquitectura
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+* **Framework:** [NestJS](https://nestjs.com/) (Node.js con TypeScript)
+* **Base de Datos:** AWS DynamoDB (Single-Table Design)
+  * **Modo Desarrollo:** DynamoDB Local en `http://localhost:8000`
+  * **Modo Producción:** AWS DynamoDB Cloud (Managed Service en AWS)
+* **ORM / ODM:** [TypeDORM](https://github.com/typedorm/typedorm) (Data Mapper para DynamoDB)
+* **SDK AWS:** `@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb` v3
+* **Seguridad y Auth:** JWT, Bcrypt, CryptoJS
+* **Notificaciones:** MailService (Nodemailer SMTP) y WhatsApp Integration
+* **Tareas Automatizadas:** Cron Jobs con `@nestjs/schedule` (Supervisión de obras vencidas)
 
-## Project setup
+---
 
-```bash
-$ npm install
+## ⚙️ Configuración de Entornos (Desarrollo vs. Producción)
+
+El backend soporta configuraciones dinámicas según el entorno mediante variables de entorno en `.env`, `.env.development` o `.env.production`.
+
+### 1. Variables de Entorno en Desarrollo (`.env.development` / `.env`)
+Para trabajar localmente con DynamoDB Local:
+
+```env
+NODE_ENV=development
+PORT=3000
+
+# DynamoDB Local Configuration
+DYNAMO_ENDPOINT=http://localhost:8000
+DYNAMO_TABLE_NAME=ControlDeObras
+DYNAMO_REGION=us-east-1
+DYNAMO_ACCESS_KEY=local
+DYNAMO_SECRET_KEY=local
+
+# Security & JWT
+JWT_SECRET=desarrollo_secret_key_12345
 ```
 
-## Compile and run the project
+### 2. Variables de Entorno en Producción (`.env.production`)
+Para conectar directamente a la nube de AWS DynamoDB:
 
-```bash
-# development
-$ npm run start
+```env
+NODE_ENV=production
+PORT=3000
 
-# watch mode
-$ npm run start:dev
+# AWS DynamoDB Cloud Configuration (Sin DYNAMO_ENDPOINT para apuntar a AWS)
+DYNAMO_ENDPOINT=
+DYNAMO_TABLE_NAME=ControlDeObras
+DYNAMO_REGION=us-east-1
+AWS_ACCESS_KEY_ID=AKIAXXXXXXXXXXXXXXXX
+AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# production mode
-$ npm run start:prod
+# Security & JWT
+JWT_SECRET=produccion_super_secret_jwt_key
 ```
 
-## Run tests
+*Nota: En producción en entornos como AWS EC2, ECS o Lambda, las credenciales AWS pueden omitirse si se asignan mediante un IAM Role.*
+
+---
+
+## 💾 Respaldo y Seed de la Base de Datos (Backup & Restore)
+
+El proyecto cuenta con un sistema integral de **Respaldo (Backup)** y **Población (Seed / Restore)** que es **100% fiel e íntegro a toda la base de datos actual**.
+
+El archivo [seed_data.json](file:///Users/bladi/Downloads/controlObras/control-de-obras/backend/seed_data.json) contiene la **totalidad de los 171 registros** existentes en la base de datos, abarcando todas las tablas y entidades del sistema.
+
+### 🔄 1. Restaurar / Poblar la Base de Datos (`npm run seed`)
+
+Este comando lee el respaldo principal [seed_data.json](file:///Users/bladi/Downloads/controlObras/control-de-obras/backend/seed_data.json), verifica si la tabla `ControlDeObras` existe (si no existe, la crea automáticamente con sus llaves `pk`, `sk` e índice `GSI1`) y restaura todos los registros en el entorno configurado (Desarrollo o Producción):
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run seed
 ```
 
-## Deployment
+### 📸 2. Generar un Respaldo Completo en Vivo (`npm run backup`)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Este comando escanea la base de datos completa (en Desarrollo o Producción) y exporta **todos los registros actuales**:
+1. Actualiza el archivo principal [seed_data.json](file:///Users/bladi/Downloads/controlObras/control-de-obras/backend/seed_data.json).
+2. Crea una copia de respaldo individual con marca de tiempo en la carpeta `backend/backups/backup_ControlDeObras_<TIMESTAMP>.json`.
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run backup
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+### 📊 Distribución de Registros en el Respaldo (`seed_data.json`)
 
-Check out a few resources that may come in handy when working with NestJS:
+| Entidad | Descripción | Cantidad de Registros |
+| --- | --- | --- |
+| **Obra** | Obras registradas con sus estados, ATs, Oficios, fechas y coordenadas | 159 |
+| **Area** | Áreas operativas / divisiones del sistema | 4 |
+| **Personal** | Residentes, supervisores y personal de campo | 3 |
+| **Zonas** | Zonas geográficas / administrativas | 1 |
+| **Contrato** | Registro de contratos de contratistas | 1 |
+| **Asignacion** | Asignaciones de contratos a obras por AT | 1 |
+| **Estimacion** | Registro de estimaciones asociadas a obras y contratos | 1 |
+| **Config** | Configuración general del sistema (SMTP, WhatsApp, etc.) | 1 |
+| **TOTAL** | **Respaldo Íntegro de la Base de Datos** | **171** |
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## 📐 Estructura del Esquema en DynamoDB (`ControlDeObras`)
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+La base de datos utiliza una **Single-Table Design** en DynamoDB. Las llaves principales son:
+* **Partition Key (`pk`):** Identificador de ámbito/usuario (ej: base64 del email o prefijo global).
+* **Sort Key (`sk`):** Tipo de entidad e ID (`obra#<SOLICITUD>`, `contrato#<NUMERO>`, `personal#<ID>`, etc.).
+* **Global Secondary Index (`GSI1`):** `sk` como PK y `pk` como SK para búsquedas secundarias.
 
-## Stay in touch
+---
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## 💻 Ejecución del Proyecto
 
-## License
+```bash
+# Modo Desarrollo con hot-reload
+npm run start:dev
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# Modo Producción
+npm run build
+npm run start:prod
+```
+
+La API estará disponible en `http://localhost:3000/api`.
+
+---
+
+## 🗺️ Módulos y Endpoints Principales
+
+| Módulo | Ruta Base | Descripción |
+| --- | --- | --- |
+| **Auth** | `/auth` | Registro (`POST /auth/register`) y Login (`POST /auth/login`). |
+| **Obras** | `/obras` | Listado, creación, actualización, asignación, capitalización y bitácoras de obras. |
+| **Contratos** | `/contratos` | Gestión de contratos, asignaciones de obras por AT y registro de estimaciones. |
+| **Personal** | `/personal` | ABCC de personal de obra y supervisores. |
+| **Zonas** | `/zonas` | ABCC de zonas administrativas y geográficas. |
+| **Áreas** | `/areas` | Gestión de áreas operativas. |
+| **Configuración**| `/config` | Pruebas y configuración SMTP/WhatsApp. |
+
+---
+
+## 🧪 Pruebas y Mantenimiento
+
+```bash
+# Ejecutar pruebas unitarias
+npm run test
+
+# Scripts útiles de mantenimiento en /backend:
+npm run seed                     # Restaura/Pobla la BD desde el seed
+npm run backup                   # Crea un respaldo completo en vivo de la BD
+node update_obras_excel.js       # Actualiza ATs y Oficios desde Excel
+node cleanup_retirement_dates.js  # Limpieza de datos temporales
+node list_obras_markdown.js       # Exporta reporte general de obras
+```

@@ -1,0 +1,1022 @@
+[
+  {
+    "solicitud": "186",
+    "at": "AV048",
+    "obra": "E0062",
+    "oficio": "AODM"
+  },
+  {
+    "solicitud": "1006",
+    "at": "AU167",
+    "obra": "E0221",
+    "oficio": "448/2025"
+  },
+  {
+    "solicitud": "915",
+    "at": "AU166",
+    "obra": "E0220",
+    "oficio": "447/2025"
+  },
+  {
+    "solicitud": "1027",
+    "at": "AU165",
+    "obra": "E0219",
+    "oficio": "446/2025"
+  },
+  {
+    "solicitud": "997",
+    "at": "AU163",
+    "obra": "E0216",
+    "oficio": "444/2025"
+  },
+  {
+    "solicitud": "1023",
+    "at": "AU164",
+    "obra": "E0217",
+    "oficio": "443/2025"
+  },
+  {
+    "solicitud": "980",
+    "at": "AU162",
+    "obra": "E0214",
+    "oficio": "439/2025"
+  },
+  {
+    "solicitud": "913",
+    "at": "AU161",
+    "obra": "E0212",
+    "oficio": "436/2025"
+  },
+  {
+    "solicitud": "194",
+    "at": "EU042",
+    "obra": "E0210",
+    "oficio": "426/2025"
+  },
+  {
+    "solicitud": "949",
+    "at": "EU041",
+    "obra": "E0208",
+    "oficio": "425/2025"
+  },
+  {
+    "solicitud": "888",
+    "at": "AU146",
+    "obra": "E0189",
+    "oficio": "384/2025"
+  },
+  {
+    "solicitud": "640",
+    "at": "SV019",
+    "obra": "E0136",
+    "oficio": "270"
+  },
+  {
+    "solicitud": "620",
+    "at": "SV018",
+    "obra": "E0113",
+    "oficio": "268"
+  },
+  {
+    "solicitud": "575",
+    "at": "AV109",
+    "obra": "E0134",
+    "oficio": "267"
+  },
+  {
+    "solicitud": "594",
+    "at": "AV108",
+    "obra": "E0103",
+    "oficio": "261"
+  },
+  {
+    "solicitud": "527",
+    "at": "AV107",
+    "obra": "E0131",
+    "oficio": "249"
+  },
+  {
+    "solicitud": "606",
+    "at": "SV017",
+    "obra": "E0128",
+    "oficio": "247"
+  },
+  {
+    "solicitud": "513",
+    "at": "AV105",
+    "obra": "E0129",
+    "oficio": "246"
+  },
+  {
+    "solicitud": "580",
+    "at": "AV104",
+    "obra": "E0127",
+    "oficio": "245"
+  },
+  {
+    "solicitud": "590",
+    "at": "AV103",
+    "obra": "E0126",
+    "oficio": "244"
+  },
+  {
+    "solicitud": "424",
+    "at": "AV0102",
+    "obra": "E0124",
+    "oficio": "243"
+  },
+  {
+    "solicitud": "501",
+    "at": "AV101",
+    "obra": "E0123",
+    "oficio": "242"
+  },
+  {
+    "solicitud": "532",
+    "at": "AV100",
+    "obra": "E0125",
+    "oficio": "241"
+  },
+  {
+    "solicitud": "445",
+    "at": "AV098",
+    "obra": "E0120",
+    "oficio": "240"
+  },
+  {
+    "solicitud": "346",
+    "at": "AV097",
+    "obra": "E0119",
+    "oficio": "239"
+  },
+  {
+    "solicitud": "393",
+    "at": "AV096",
+    "obra": "E0118",
+    "oficio": "238"
+  },
+  {
+    "solicitud": "515",
+    "at": "AV094",
+    "obra": "E0116",
+    "oficio": "237"
+  },
+  {
+    "solicitud": "537",
+    "at": "SV015",
+    "obra": "E0114",
+    "oficio": "236"
+  },
+  {
+    "solicitud": "567",
+    "at": "SV016",
+    "obra": "E0122",
+    "oficio": "231"
+  },
+  {
+    "solicitud": "553",
+    "at": "AV099",
+    "obra": "E0121",
+    "oficio": "230"
+  },
+  {
+    "solicitud": "462",
+    "at": "AV095",
+    "obra": "E0117",
+    "oficio": "229"
+  },
+  {
+    "solicitud": "534",
+    "at": "AV093",
+    "obra": "E0115",
+    "oficio": "228"
+  },
+  {
+    "solicitud": "509",
+    "at": "AV090",
+    "obra": "E0111",
+    "oficio": "227"
+  },
+  {
+    "solicitud": "520",
+    "at": "SV014",
+    "obra": "E0110",
+    "oficio": "226"
+  },
+  {
+    "solicitud": "433",
+    "at": "AV088",
+    "obra": "E0108",
+    "oficio": "217"
+  },
+  {
+    "solicitud": "492",
+    "at": "SV013",
+    "obra": "E0107",
+    "oficio": "216"
+  },
+  {
+    "solicitud": "511",
+    "at": "AV092",
+    "obra": "E0112",
+    "oficio": "215"
+  },
+  {
+    "solicitud": "388",
+    "at": "AV091",
+    "obra": "E0113",
+    "oficio": "214"
+  },
+  {
+    "solicitud": "359",
+    "at": "AV089",
+    "obra": "E0109",
+    "oficio": "210"
+  },
+  {
+    "solicitud": "426",
+    "at": "AV087",
+    "obra": "E0106",
+    "oficio": "207"
+  },
+  {
+    "solicitud": "440",
+    "at": "AV086",
+    "obra": "E0104",
+    "oficio": "206"
+  },
+  {
+    "solicitud": "480",
+    "at": "SV012",
+    "obra": "E0105",
+    "oficio": "205"
+  },
+  {
+    "solicitud": "437",
+    "at": "AV085",
+    "obra": "E0103",
+    "oficio": "203"
+  },
+  {
+    "solicitud": "328",
+    "at": "AV084",
+    "obra": "E0102",
+    "oficio": "202"
+  },
+  {
+    "solicitud": "383",
+    "at": "AV083",
+    "obra": "E0101",
+    "oficio": "201"
+  },
+  {
+    "solicitud": "409",
+    "at": "AV082",
+    "obra": "E0100",
+    "oficio": "200"
+  },
+  {
+    "solicitud": "466",
+    "at": "SV011",
+    "obra": "E0099",
+    "oficio": "199"
+  },
+  {
+    "solicitud": "372",
+    "at": "AV081",
+    "obra": "E0098",
+    "oficio": "198"
+  },
+  {
+    "solicitud": "",
+    "at": "EV024",
+    "obra": "A0026",
+    "oficio": "195"
+  },
+  {
+    "solicitud": "",
+    "at": "EV025",
+    "obra": "A0027",
+    "oficio": "194"
+  },
+  {
+    "solicitud": "415",
+    "at": "AV080",
+    "obra": "E0097",
+    "oficio": "193"
+  },
+  {
+    "solicitud": "342",
+    "at": "AV079",
+    "obra": "E0096",
+    "oficio": "192"
+  },
+  {
+    "solicitud": "307",
+    "at": "AV078",
+    "obra": "E0095",
+    "oficio": "186"
+  },
+  {
+    "solicitud": "428",
+    "at": "AV077",
+    "obra": "E0094",
+    "oficio": "185"
+  },
+  {
+    "solicitud": "431",
+    "at": "AV076",
+    "obra": "E0093",
+    "oficio": "184"
+  },
+  {
+    "solicitud": "395",
+    "at": "AV075",
+    "obra": "E0092",
+    "oficio": "183"
+  },
+  {
+    "solicitud": "419",
+    "at": "SV010",
+    "obra": "E0089",
+    "oficio": "182"
+  },
+  {
+    "solicitud": "308",
+    "at": "AV074",
+    "obra": "E0091",
+    "oficio": "181"
+  },
+  {
+    "solicitud": "320",
+    "at": "AV073",
+    "obra": "E0090",
+    "oficio": "180"
+  },
+  {
+    "solicitud": "30",
+    "at": "GP011",
+    "obra": "E0047",
+    "oficio": "169"
+  },
+  {
+    "solicitud": "358",
+    "at": "GP095",
+    "obra": "E0045",
+    "oficio": "168"
+  },
+  {
+    "solicitud": "62",
+    "at": "GP018",
+    "obra": "E0044",
+    "oficio": "167"
+  },
+  {
+    "solicitud": "371",
+    "at": "SV009",
+    "obra": "E0082",
+    "oficio": "166"
+  },
+  {
+    "solicitud": "363",
+    "at": "AV070",
+    "obra": "E0085",
+    "oficio": "165"
+  },
+  {
+    "solicitud": "374",
+    "at": "AV071",
+    "obra": "E0086",
+    "oficio": "164"
+  },
+  {
+    "solicitud": "357",
+    "at": "AV072",
+    "obra": "E0087",
+    "oficio": "163"
+  },
+  {
+    "solicitud": "168",
+    "at": "EV023",
+    "obra": "E0088",
+    "oficio": "162"
+  },
+  {
+    "solicitud": "312",
+    "at": "AV069",
+    "obra": "E0084",
+    "oficio": "161"
+  },
+  {
+    "solicitud": "",
+    "at": "GP143",
+    "obra": "E0043",
+    "oficio": "160"
+  },
+  {
+    "solicitud": "318",
+    "at": "AV068",
+    "obra": "E0083",
+    "oficio": "152"
+  },
+  {
+    "solicitud": "217",
+    "at": "AV067",
+    "obra": "E0081",
+    "oficio": "151"
+  },
+  {
+    "solicitud": "189",
+    "at": "AV065",
+    "obra": "E0079",
+    "oficio": "148"
+  },
+  {
+    "solicitud": "286",
+    "at": "AV066",
+    "obra": "E0080",
+    "oficio": "147"
+  },
+  {
+    "solicitud": "144",
+    "at": "AV064",
+    "obra": "E0078",
+    "oficio": "146"
+  },
+  {
+    "solicitud": "315",
+    "at": "AV063",
+    "obra": "E0077",
+    "oficio": "145"
+  },
+  {
+    "solicitud": "241",
+    "at": "AV062",
+    "obra": "E0076",
+    "oficio": "144"
+  },
+  {
+    "solicitud": "187",
+    "at": "AV061",
+    "obra": "E0075",
+    "oficio": "143"
+  },
+  {
+    "solicitud": "325",
+    "at": "AV060",
+    "obra": "E0074",
+    "oficio": "137"
+  },
+  {
+    "solicitud": "488",
+    "at": "GP153",
+    "obra": "E0046",
+    "oficio": "132"
+  },
+  {
+    "solicitud": "176",
+    "at": "AV059",
+    "obra": "E0073",
+    "oficio": "131"
+  },
+  {
+    "solicitud": "400",
+    "at": "GP119",
+    "obra": "E0049",
+    "oficio": "129"
+  },
+  {
+    "solicitud": "91",
+    "at": "AV055",
+    "obra": "E0069",
+    "oficio": "128"
+  },
+  {
+    "solicitud": "295",
+    "at": "SV008",
+    "obra": "E0071",
+    "oficio": "127"
+  },
+  {
+    "solicitud": "290",
+    "at": "SV007",
+    "obra": "E0070",
+    "oficio": "126"
+  },
+  {
+    "solicitud": "299",
+    "at": "AV056",
+    "obra": "E0072",
+    "oficio": "125"
+  },
+  {
+    "solicitud": "166",
+    "at": "AV054",
+    "obra": "E0068",
+    "oficio": "117"
+  },
+  {
+    "solicitud": "258",
+    "at": "AV053",
+    "obra": "E0066",
+    "oficio": "116"
+  },
+  {
+    "solicitud": "190",
+    "at": "AV052",
+    "obra": "E0067",
+    "oficio": "115"
+  },
+  {
+    "solicitud": "232",
+    "at": "AV047",
+    "obra": "E0061",
+    "oficio": "114"
+  },
+  {
+    "solicitud": "229",
+    "at": "AV051",
+    "obra": "E0065",
+    "oficio": "113"
+  },
+  {
+    "solicitud": "129",
+    "at": "AV046",
+    "obra": "E0060",
+    "oficio": "112"
+  },
+  {
+    "solicitud": "239",
+    "at": "AV045",
+    "obra": "E0059",
+    "oficio": "111"
+  },
+  {
+    "solicitud": "446",
+    "at": "GP145",
+    "obra": "E0048",
+    "oficio": "110"
+  },
+  {
+    "solicitud": "247",
+    "at": "AV044",
+    "obra": "E0058",
+    "oficio": "109"
+  },
+  {
+    "solicitud": "152",
+    "at": "AV043",
+    "obra": "E0057",
+    "oficio": "108"
+  },
+  {
+    "solicitud": "192",
+    "at": "AV042",
+    "obra": "E0056",
+    "oficio": "107"
+  },
+  {
+    "solicitud": "206",
+    "at": "AV050",
+    "obra": "E0064",
+    "oficio": "105"
+  },
+  {
+    "solicitud": "117",
+    "at": "AV049",
+    "obra": "E0063",
+    "oficio": "104"
+  },
+  {
+    "solicitud": "134",
+    "at": "AV041",
+    "obra": "E0055",
+    "oficio": "84"
+  },
+  {
+    "solicitud": "164",
+    "at": "AV040",
+    "obra": "E0054",
+    "oficio": "83"
+  },
+  {
+    "solicitud": "118",
+    "at": "AV039",
+    "obra": "E0053",
+    "oficio": "82"
+  },
+  {
+    "solicitud": "508",
+    "at": "GP155",
+    "obra": "E0018",
+    "oficio": "81"
+  },
+  {
+    "solicitud": "893",
+    "at": "EV022",
+    "obra": "E0052",
+    "oficio": "80"
+  },
+  {
+    "solicitud": "468",
+    "at": "EV006",
+    "obra": "A0011",
+    "oficio": "69"
+  },
+  {
+    "solicitud": "908",
+    "at": "EV021",
+    "obra": "A0013",
+    "oficio": "68"
+  },
+  {
+    "solicitud": "969",
+    "at": "EV012",
+    "obra": "A0020",
+    "oficio": "67"
+  },
+  {
+    "solicitud": "951",
+    "at": "EV009",
+    "obra": "A0017",
+    "oficio": "66"
+  },
+  {
+    "solicitud": "768",
+    "at": "EV008",
+    "obra": "A0019",
+    "oficio": "65"
+  },
+  {
+    "solicitud": "237",
+    "at": "EV003",
+    "obra": "A0010",
+    "oficio": "64"
+  },
+  {
+    "solicitud": "21",
+    "at": "AV038",
+    "obra": "E0051",
+    "oficio": "63"
+  },
+  {
+    "solicitud": "105",
+    "at": "AV037",
+    "obra": "E0050",
+    "oficio": "56"
+  },
+  {
+    "solicitud": "896",
+    "at": "EV020",
+    "obra": "A0021",
+    "oficio": "53"
+  },
+  {
+    "solicitud": "412",
+    "at": "EV005",
+    "obra": "A0012",
+    "oficio": "52"
+  },
+  {
+    "solicitud": "358",
+    "at": "EV004",
+    "obra": "A0018",
+    "oficio": "51"
+  },
+  {
+    "solicitud": "124",
+    "at": "AV036",
+    "obra": "E0042",
+    "oficio": "50"
+  },
+  {
+    "solicitud": "65",
+    "at": "AV031",
+    "obra": "E0037",
+    "oficio": "49"
+  },
+  {
+    "solicitud": "115",
+    "at": "AV029",
+    "obra": "E0036",
+    "oficio": "48"
+  },
+  {
+    "solicitud": "1030",
+    "at": "AV028",
+    "obra": "E0034",
+    "oficio": "47"
+  },
+  {
+    "solicitud": "81",
+    "at": "AV035",
+    "obra": "E0038",
+    "oficio": "46"
+  },
+  {
+    "solicitud": "99",
+    "at": "AV033",
+    "obra": "E0040",
+    "oficio": "45"
+  },
+  {
+    "solicitud": "102",
+    "at": "AV032",
+    "obra": "E0039",
+    "oficio": "44"
+  },
+  {
+    "solicitud": "100",
+    "at": "AV034",
+    "obra": "E0041",
+    "oficio": "43"
+  },
+  {
+    "solicitud": "127",
+    "at": "AV030",
+    "obra": "E0035",
+    "oficio": "42"
+  },
+  {
+    "solicitud": "26",
+    "at": "AV021",
+    "obra": "E0027",
+    "oficio": "41"
+  },
+  {
+    "solicitud": "95",
+    "at": "AV020",
+    "obra": "E0026",
+    "oficio": "40"
+  },
+  {
+    "solicitud": "77",
+    "at": "SV006",
+    "obra": "E0024",
+    "oficio": "39"
+  },
+  {
+    "solicitud": "93",
+    "at": "AV027",
+    "obra": "E033",
+    "oficio": "38"
+  },
+  {
+    "solicitud": "97",
+    "at": "AV026",
+    "obra": "E032",
+    "oficio": "37"
+  },
+  {
+    "solicitud": "27",
+    "at": "AV025",
+    "obra": "E0031",
+    "oficio": "36"
+  },
+  {
+    "solicitud": "78",
+    "at": "AV023",
+    "obra": "E0029",
+    "oficio": "35"
+  },
+  {
+    "solicitud": "111",
+    "at": "AV024",
+    "obra": "E0030",
+    "oficio": "34"
+  },
+  {
+    "solicitud": "22",
+    "at": "AV016",
+    "obra": "E0020",
+    "oficio": "33"
+  },
+  {
+    "solicitud": "49",
+    "at": "AV022",
+    "obra": "E0028",
+    "oficio": "32"
+  },
+  {
+    "solicitud": "64",
+    "at": "AV019",
+    "obra": "E0025",
+    "oficio": "31"
+  },
+  {
+    "solicitud": "996",
+    "at": "AV012",
+    "obra": "E0016",
+    "oficio": "30"
+  },
+  {
+    "solicitud": "11",
+    "at": "AV013",
+    "obra": "E0017",
+    "oficio": "29"
+  },
+  {
+    "solicitud": "975",
+    "at": "AV017",
+    "obra": "E0021",
+    "oficio": "28"
+  },
+  {
+    "solicitud": "90",
+    "at": "SV005",
+    "obra": "E0023",
+    "oficio": "27"
+  },
+  {
+    "solicitud": "24",
+    "at": "AV018",
+    "obra": "E0022",
+    "oficio": "26"
+  },
+  {
+    "solicitud": "869",
+    "at": "EV016",
+    "obra": "A0014",
+    "oficio": "26"
+  },
+  {
+    "solicitud": "870",
+    "at": "EV017",
+    "obra": "A0015",
+    "oficio": "26"
+  },
+  {
+    "solicitud": "871",
+    "at": "EV018",
+    "obra": "A0016",
+    "oficio": "26"
+  },
+  {
+    "solicitud": "874",
+    "at": "EV019",
+    "obra": "A0003",
+    "oficio": "26"
+  },
+  {
+    "solicitud": "1017",
+    "at": "AV014",
+    "obra": "E019",
+    "oficio": "25"
+  },
+  {
+    "solicitud": "2",
+    "at": "AV010",
+    "obra": "E0014",
+    "oficio": "24"
+  },
+  {
+    "solicitud": "31",
+    "at": "AV011",
+    "obra": "E015",
+    "oficio": "23"
+  },
+  {
+    "solicitud": "965",
+    "at": "EV011",
+    "obra": "A0009",
+    "oficio": "22"
+  },
+  {
+    "solicitud": "964",
+    "at": "EV010",
+    "obra": "A0008",
+    "oficio": "21"
+  },
+  {
+    "solicitud": "832",
+    "at": "EV007",
+    "obra": "A0007",
+    "oficio": "20"
+  },
+  {
+    "solicitud": "993",
+    "at": "EV015",
+    "obra": "A0006",
+    "oficio": "19"
+  },
+  {
+    "solicitud": "992",
+    "at": "EV014",
+    "obra": "A0005",
+    "oficio": "18"
+  },
+  {
+    "solicitud": "991",
+    "at": "EV013",
+    "obra": "A0004",
+    "oficio": "17"
+  },
+  {
+    "solicitud": "41",
+    "at": "SV003",
+    "obra": "E0012",
+    "oficio": "16"
+  },
+  {
+    "solicitud": "53",
+    "at": "SV004",
+    "obra": "E0013",
+    "oficio": "15"
+  },
+  {
+    "solicitud": "20",
+    "at": "AV009",
+    "obra": "E0011",
+    "oficio": "14"
+  },
+  {
+    "solicitud": "29",
+    "at": "AV008",
+    "obra": "E0010",
+    "oficio": "13"
+  },
+  {
+    "solicitud": "14",
+    "at": "AV006",
+    "obra": "E0008",
+    "oficio": "12"
+  },
+  {
+    "solicitud": "5",
+    "at": "AV007",
+    "obra": "E009",
+    "oficio": "11"
+  },
+  {
+    "solicitud": "23",
+    "at": "AV005",
+    "obra": "E006",
+    "oficio": "10"
+  },
+  {
+    "solicitud": "32",
+    "at": "SV002",
+    "obra": "E007",
+    "oficio": "9"
+  },
+  {
+    "solicitud": "19",
+    "at": "AV003",
+    "obra": "E0002",
+    "oficio": "8"
+  },
+  {
+    "solicitud": "1000",
+    "at": "AV004",
+    "obra": "E0004",
+    "oficio": "7"
+  },
+  {
+    "solicitud": "15",
+    "at": "SV001",
+    "obra": "E0005",
+    "oficio": "6"
+  },
+  {
+    "solicitud": "9",
+    "at": "AV002",
+    "obra": "E0001",
+    "oficio": "5"
+  },
+  {
+    "solicitud": "1044",
+    "at": "AV001",
+    "obra": "E0003",
+    "oficio": "4"
+  },
+  {
+    "solicitud": "875",
+    "at": "EV001",
+    "obra": "A0001",
+    "oficio": "3"
+  },
+  {
+    "solicitud": "876",
+    "at": "EV002",
+    "obra": "A0002",
+    "oficio": "2"
+  },
+  {
+    "solicitud": "986",
+    "at": "AU168",
+    "obra": "E0222",
+    "oficio": "1"
+  },
+  {
+    "solicitud": "276",
+    "at": "RV036",
+    "obra": "",
+    "oficio": ""
+  },
+  {
+    "solicitud": "555",
+    "at": "AV110",
+    "obra": "E0135",
+    "oficio": ""
+  }
+]
