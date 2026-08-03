@@ -1,0 +1,48 @@
+service: control-obras-backend
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'prod'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 512
+  timeout: 30
+  environment:
+    NODE_ENV: ${self:provider.stage}
+    DYNAMO_TABLE_NAME: ${env:DYNAMO_TABLE_NAME, 'ControlDeObras'}
+    DYNAMO_REGION: ${self:provider.region}
+    JWT_SECRET: ${env:JWT_SECRET, 'serverless_jwt_secret_key'}
+    SMTP_HOST: ${env:SMTP_HOST, ''}
+    SMTP_PORT: ${env:SMTP_PORT, '587'}
+    SMTP_USER: ${env:SMTP_USER, ''}
+    SMTP_PASS: ${env:SMTP_PASS, ''}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:DescribeTable
+          Resource:
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMO_TABLE_NAME}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DYNAMO_TABLE_NAME}/index/*
+
+functions:
+  api:
+    handler: dist/lambda.handler
+    events:
+      - httpApi: '*'
+
+package:
+  patterns:
+    - 'dist/**'
+    - '!src/**'
+    - '!test/**'

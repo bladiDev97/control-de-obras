@@ -128,6 +128,22 @@ La API estará disponible en `http://localhost:3000/api`.
 
 ---
 
+## ⚡ Despliegue en AWS Serverless (Lambda + API Gateway)
+
+El proyecto incluye el handler [src/lambda.ts](file:///Users/bladi/Downloads/controlObras/control-de-obras/backend/src/lambda.ts) y la configuración de [serverless.yml](file:///Users/bladi/Downloads/controlObras/control-de-obras/backend/serverless.yml) mediante `@codegenie/serverless-express`.
+
+### Desplegar a AWS Lambda con Serverless Framework:
+
+```bash
+# 1. Compilar el proyecto NestJS
+npm run build
+
+# 2. Desplegar a AWS (asegúrate de tener configuradas tus credenciales de AWS)
+npx serverless deploy --stage prod
+```
+
+---
+
 ## 🗺️ Módulos y Endpoints Principales
 
 | Módulo | Ruta Base | Descripción |
