@@ -87,8 +87,8 @@ export default function ContratosPage() {
   const [formFechaInicio, setFormFechaInicio] = useState('');
   const [formFechaFin, setFormFechaFin] = useState('');
   const [formCorreos, setFormCorreos] = useState<string[]>(['']);
-  const [formPorcentajeAmpliacion, setFormPorcentajeAmpliacion] = useState(30);
-  const [formPorcentajeAmpliacionTiempo, setFormPorcentajeAmpliacionTiempo] = useState(15);
+  const [formPorcentajeAmpliacion, setFormPorcentajeAmpliacion] = useState<number | string>(30);
+  const [formPorcentajeAmpliacionTiempo, setFormPorcentajeAmpliacionTiempo] = useState<number | string>(15);
   const [isEditMode, setIsEditMode] = useState(false);
 
   // Concepts list state (starts with predefined concepts but can be appended to)
@@ -142,6 +142,9 @@ export default function ContratosPage() {
           cantidadContratada: vals.cantidad,
         }));
 
+      const valPorcentajeAmpliacion = (formPorcentajeAmpliacion !== '' && formPorcentajeAmpliacion !== undefined && formPorcentajeAmpliacion !== null) ? Number(formPorcentajeAmpliacion) : 0;
+      const valPorcentajeAmpliacionTiempo = (formPorcentajeAmpliacionTiempo !== '' && formPorcentajeAmpliacionTiempo !== undefined && formPorcentajeAmpliacionTiempo !== null) ? Number(formPorcentajeAmpliacionTiempo) : 0;
+
       const payload: Contrato = {
         numeroContrato: formNumeroContrato,
         contratista: formContratista || undefined,
@@ -151,8 +154,8 @@ export default function ContratosPage() {
         fechaFin: formFechaFin || undefined,
         licitacion: formLicitacion || undefined,
         montoAutorizado: formMontoAutorizado || undefined,
-        porcentajeAmpliacion: formPorcentajeAmpliacion || undefined,
-        porcentajeAmpliacionTiempo: formPorcentajeAmpliacionTiempo || undefined,
+        porcentajeAmpliacion: valPorcentajeAmpliacion,
+        porcentajeAmpliacionTiempo: valPorcentajeAmpliacionTiempo,
         correos: formCorreos.filter((c) => c.trim() !== ''),
         conceptos,
       };
@@ -208,8 +211,8 @@ export default function ContratosPage() {
     setFormFechaFin(contrato.fechaFin || '');
     setFormLicitacion(contrato.licitacion || '');
     setFormMontoAutorizado(contrato.montoAutorizado || 0);
-    setFormPorcentajeAmpliacion(contrato.porcentajeAmpliacion !== undefined ? contrato.porcentajeAmpliacion : 30);
-    setFormPorcentajeAmpliacionTiempo(contrato.porcentajeAmpliacionTiempo !== undefined ? contrato.porcentajeAmpliacionTiempo : 15);
+    setFormPorcentajeAmpliacion(contrato.porcentajeAmpliacion !== undefined && contrato.porcentajeAmpliacion !== null ? contrato.porcentajeAmpliacion : 0);
+    setFormPorcentajeAmpliacionTiempo(contrato.porcentajeAmpliacionTiempo !== undefined && contrato.porcentajeAmpliacionTiempo !== null ? contrato.porcentajeAmpliacionTiempo : 0);
     setFormCorreos(contrato.correos && contrato.correos.length > 0 ? contrato.correos : ['']);
 
     // Build the concepts list for editing: union of predefined and existing ones
@@ -450,8 +453,12 @@ export default function ContratosPage() {
                   label="Porcentaje de Ampliación en Monto (%)"
                   fullWidth
                   type="number"
-                  value={formPorcentajeAmpliacion}
-                  onChange={(e) => setFormPorcentajeAmpliacion(parseFloat(e.target.value) || 0)}
+                  inputProps={{ min: 0, step: 'any' }}
+                  value={formPorcentajeAmpliacion ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormPorcentajeAmpliacion(val === '' ? '' as any : parseFloat(val));
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -459,8 +466,12 @@ export default function ContratosPage() {
                   label="Porcentaje de Ampliación en Tiempo (%)"
                   fullWidth
                   type="number"
-                  value={formPorcentajeAmpliacionTiempo}
-                  onChange={(e) => setFormPorcentajeAmpliacionTiempo(parseFloat(e.target.value) || 0)}
+                  inputProps={{ min: 0, step: 'any' }}
+                  value={formPorcentajeAmpliacionTiempo ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormPorcentajeAmpliacionTiempo(val === '' ? '' as any : parseFloat(val));
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>

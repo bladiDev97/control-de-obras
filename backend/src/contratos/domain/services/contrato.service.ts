@@ -157,6 +157,14 @@ export class ContratoService {
     return await this.contratoRepository.estimacionSave(payload);
   }
 
+  public async deleteEstimacion(pk: string, numeroContrato: string, at: string, numeroEstimacion: string): Promise<boolean> {
+    return await this.contratoRepository.estimacionDelete(pk, numeroContrato, at, numeroEstimacion);
+  }
+
+  public async deleteEstimacionBlock(pk: string, numeroContrato: string, numeroEstimacion: string): Promise<boolean> {
+    return await this.contratoRepository.estimacionBlockDelete(pk, numeroContrato, numeroEstimacion);
+  }
+
   // --- Master Import of All Sheets ---
   public async importarCompleto(pk: string, payload: any): Promise<any> {
     const contratoDto = payload.contrato;

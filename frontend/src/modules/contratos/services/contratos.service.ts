@@ -16,5 +16,9 @@ export const contratosService = {
   // Assignments & Estimations API
   getAsignaciones: (numeroContrato: string) => api.get<ApiResponse<Asignacion[]>>(`/contratos/${numeroContrato}/asignaciones`).then((r) => r.data.data),
   getEstimaciones: (numeroContrato: string) => api.get<ApiResponse<Estimacion[]>>(`/contratos/${numeroContrato}/estimaciones`).then((r) => r.data.data),
+  deleteEstimacion: (numeroContrato: string, at: string, numeroEstimacion: string) =>
+    api.delete<ApiResponse<boolean>>(`/contratos/${numeroContrato}/estimaciones/${encodeURIComponent(at)}/${encodeURIComponent(numeroEstimacion)}`).then((r) => r.data.data),
+  deleteEstimacionBlock: (numeroContrato: string, numeroEstimacion: string) =>
+    api.delete<ApiResponse<boolean>>(`/contratos/${numeroContrato}/estimaciones/bloque/${encodeURIComponent(numeroEstimacion)}`).then((r) => r.data.data),
   importarCompleto: (payload: any) => api.post<ApiResponse<any>>('/contratos/importar-completo', payload).then((r) => r.data.data),
 };

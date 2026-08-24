@@ -171,4 +171,25 @@ export class ContratoRepository
       return item;
     }).filter(item => !item.isDelete);
   }
+
+  public async estimacionDelete(pk: string, numeroContrato: string, at: string, numeroEstimacion: string): Promise<boolean> {
+    const encryptedPk = CryptoService.encryptEmail(pk);
+    const sk = `estimacion#${numeroContrato}#${at}#${numeroEstimacion}`;
+    try {
+      await this.entityManager.delete<EstimacionEntity>(EstimacionEntity, { pk: encryptedPk, sk });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public async estimacionBlockDelete(pk: string, numeroContrato: string, numeroEstimacion: string): Promise<boolean> {
+    const list = await this.estimacionList(pk, numeroContrato);
+    const matched = list.filter(item => String(item.numeroEstimacion) === String(numeroEstimacion));
+    for (const item of matched) {
+      const encryptedPk = CryptoService.encryptEmail(pk);
+      await this.entityManager.delete<EstimacionEntity>(EstimacionEntity, { pk: encryptedPk, sk: item.sk });
+    }
+    return true;
+  }
 }

@@ -18,4 +18,6 @@ export interface IContratoRepository {
 
   estimacionSave(body: IEstimacion): Promise<IEstimacion>;
   estimacionList(pk: string, numeroContrato: string): Promise<IEstimacion[]>;
+  estimacionDelete(pk: string, numeroContrato: string, at: string, numeroEstimacion: string): Promise<boolean>;
+  estimacionBlockDelete(pk: string, numeroContrato: string, numeroEstimacion: string): Promise<boolean>;
 }

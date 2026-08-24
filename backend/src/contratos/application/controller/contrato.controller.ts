@@ -148,6 +148,44 @@ export class ContratoController {
     return jsonResponse;
   }
 
+  @Delete(':numeroContrato/estimaciones/bloque/:numeroEstimacion')
+  @ApiParam({ name: 'numeroContrato', required: true })
+  @ApiParam({ name: 'numeroEstimacion', required: true })
+  public async deleteEstimacionBlock(
+    @Res() response: Response,
+    @Param('numeroContrato') numeroContrato: string,
+    @Param('numeroEstimacion') numeroEstimacion: string,
+  ): Promise<any> {
+    const pk = 'bladi.PigeonSave@gmail.com';
+    const result = await this.contratoService.deleteEstimacionBlock(pk, numeroContrato, numeroEstimacion);
+    const jsonResponse = new JsonResponse({
+      data: result,
+      message: 'Bloque de estimación eliminado exitosamente',
+    });
+    response.status(HttpStatus.OK).send(jsonResponse);
+    return jsonResponse;
+  }
+
+  @Delete(':numeroContrato/estimaciones/:at/:numeroEstimacion')
+  @ApiParam({ name: 'numeroContrato', required: true })
+  @ApiParam({ name: 'at', required: true })
+  @ApiParam({ name: 'numeroEstimacion', required: true })
+  public async deleteEstimacion(
+    @Res() response: Response,
+    @Param('numeroContrato') numeroContrato: string,
+    @Param('at') at: string,
+    @Param('numeroEstimacion') numeroEstimacion: string,
+  ): Promise<any> {
+    const pk = 'bladi.PigeonSave@gmail.com';
+    const result = await this.contratoService.deleteEstimacion(pk, numeroContrato, at, numeroEstimacion);
+    const jsonResponse = new JsonResponse({
+      data: result,
+      message: 'Estimación eliminada exitosamente',
+    });
+    response.status(HttpStatus.OK).send(jsonResponse);
+    return jsonResponse;
+  }
+
   // --- Master Import ---
   @Post('importar-completo')
   public async importarCompleto(@Res() response: Response, @Body() payload: any): Promise<any> {
