@@ -10,6 +10,16 @@ export class EstimacionSaveDto {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  at?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  numeroEstimacion?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
   avanceMvmo?: string;
 
   @ApiPropertyOptional()
@@ -34,5 +44,6 @@ export class EstimacionSaveDto {
 
   @ApiPropertyOptional()
   @IsObject()
-  conceptos: { [conceptName: string]: number };
+  @IsOptional()
+  conceptos?: { [conceptName: string]: number };
 }
