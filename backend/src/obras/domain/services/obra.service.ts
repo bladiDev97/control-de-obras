@@ -62,12 +62,32 @@ export class ObraService {
   /** Get Obras to Capitalize (completed but not capitalized) */
   public async getCapitalizar(pk: string): Promise<IObra[]> {
     const obras = await this.getAll(pk);
-    return obras.filter(
-      (obra) =>
-        obra.fechaFinConstruccion &&
-        obra.fechaFinConstruccion.trim() !== '' &&
-        (!obra.fechaCapitalizacion || obra.fechaCapitalizacion.trim() === ''),
-    );
+    return obras
+      .filter((obra) => {
+        const rawObra = obra as any;
+        const hasFechaTermino = !!(
+          (obra.fechaFinConstruccion && obra.fechaFinConstruccion.trim() !== '') ||
+          (rawObra.fechaTermino && String(rawObra.fechaTermino).trim() !== '') ||
+          (obra.fechaTerminoCampo && obra.fechaTerminoCampo.trim() !== '')
+        );
+        const notCapitalized =
+          (!obra.fechaCapitalizacion || obra.fechaCapitalizacion.trim() === '') &&
+          obra.estatus !== 'CAPITALIZADA';
+
+        return hasFechaTermino && notCapitalized;
+      })
+      .map((obra) => {
+        const rawObra = obra as any;
+        const fechaTerm = obra.fechaFinConstruccion || rawObra.fechaTermino || obra.fechaTerminoCampo;
+        const diasSinCapitalizar = this.calculateDaysSinceTermino(
+          fechaTerm,
+          obra.fechaCapitalizacion,
+        );
+        return {
+          ...obra,
+          diasSinCapitalizar,
+        };
+      });
   }
 
   /** Get a single Obra */
@@ -124,22 +144,28 @@ export class ObraService {
   }
 
   /** Update an Obra */
-  public async update(pk: string, id: string, dto: ObrasUpdateDto): Promise<IObra> {
-    const keys: IGeneric = { pk, sk: id };
+  public async update(pk: string, id: string, dto: ObrasUpdateDto, planoPdfPath?: string): Promise<IObra> {
+    const sk = id.startsWith('obra#') ? id : `obra#${id}`;
+    const keys: IGeneric = { pk, sk };
     const existing = await this.obraRepository.obraDetail(keys);
 
     const updatedData: IObra = {
       ...existing,
       ...dto,
       pk,
-      sk: id,
+      sk,
+      solicitudPo: dto.solicitudPo || existing?.solicitudPo,
     };
+
+    if (planoPdfPath) {
+      updatedData.planoPdf = planoPdfPath;
+    }
 
     updatedData.estatus = this.determineEstatus(updatedData);
     const updated = await this.obraRepository.obraUpdate(updatedData);
     return {
       ...updated,
-      id,
+      id: sk,
     };
   }
 
@@ -663,7 +689,7 @@ export class ObraService {
               sk: solicitudPo,
               solicitudPo,
               anio: new Date().getFullYear().toString(),
-              tipoObra: 'APORTACIONES',
+              tipoObra: 'SSEEBRA',
               fechaPago,
               diasObraAPORTACIONES,
               estatus: 'PENDIENTE',
@@ -690,16 +716,19 @@ export class ObraService {
     // SIAD PLUS flow
     for (const row of rows) {
       try {
-        const obraKey = Object.keys(row || {}).find(k => k.toLowerCase().trim() === 'obra');
-        const obraVal = String(obraKey ? row[obraKey] : '').toUpperCase().trim();
+        const obraKey = Object.keys(row || {}).find(k => {
+          const lk = k.toLowerCase().trim();
+          return lk === 'obra' || lk.startsWith('obra');
+        });
+        const obraVal = String(obraKey ? row[obraKey] : '').trim().toUpperCase();
         const startWithEorA = obraVal.startsWith('E') || obraVal.startsWith('A');
 
         if (!startWithEorA) {
           continue;
         }
 
-        let solicitudPo = row['Solicitud/PO'] || row['Solicitud'] || row['PO/ET'] || '';
-        const poEt = String(row['PO/ET'] || '').trim();
+        let solicitudPo = row['Solicitud/PO'] || row['Solicitud'] || row['PO/ET'] || row['PO'] || row['ET'] || '';
+        const poEt = String(row['PO/ET'] || row['PO'] || '').trim();
         if (poEt.includes('/')) {
           const parts = poEt.split('/');
           solicitudPo = parts[0].trim();
@@ -707,8 +736,11 @@ export class ObraService {
 
         solicitudPo = this.standardizeSolicitud(solicitudPo);
 
-        // Extract year from Obra column (e.g. A0007/2026 -> 2026)
-        const rawObraText = String(row['Obra'] || '').trim();
+        const rawObraText = String(obraKey ? row[obraKey] : (row['Obra'] || '')).trim();
+
+        if (!solicitudPo && !rawObraText) {
+          continue;
+        }
         let anio = row['Año'] || row['anio'] || '';
         if (rawObraText.includes('/')) {
           const parts = rawObraText.split('/');
@@ -746,35 +778,53 @@ export class ObraService {
           if (rawObraVal.startsWith('A') || rawObraVal.includes('A')) {
             tipoObra = 'FSUE';
           } else if (rawObraVal.startsWith('E') || rawObraVal.includes('E')) {
-            tipoObra = 'APORTACIONES';
+            tipoObra = 'SSEEBRA';
           }
         }
         
-        // Fallback checks
         if (!tipoObra) {
           const rawTipoObraCol = String(row['Tipo de Obra'] || row['Tipo Solución'] || '').toUpperCase().trim();
           if (rawTipoObraCol.includes('RPT') || rawTipoObraCol.includes('PERDIDAS')) {
             tipoObra = 'RPT';
           } else if (rawTipoObraCol.includes('FSUE')) {
             tipoObra = 'FSUE';
-          } else if (rawTipoObraCol.includes('APORTACIONES') || rawTipoObraCol.includes('APORTACION')) {
-            tipoObra = 'APORTACIONES';
+          } else if (rawTipoObraCol.includes('SSEEBRA') || rawTipoObraCol.includes('APORTACIONES')) {
+            tipoObra = 'SSEEBRA';
           }
         }
-        const poblacion = '';
-        const municipio = '';
-        const rd = '';
-        const nombreSolicitante = '';
-        const orden = row['Orden'] || '';
-        const activo = row['Activo'] || '';
-        const ordenRetiro = row['Orden de Retiro'] || '';
+
+        const poblacion = row['Poblacion'] || row['Población'] || row['POBLACION'] || '';
+        const municipio = row['Municipio'] || row['MUNICIPIO'] || '';
+        const area = row['Area'] || row['Área'] || row['AREA'] || row['AREA '] || '';
+        const nombreSolicitante = row['Nombre'] || row['Solicitante'] || row['Cliente'] || row['NOMBRE'] || '';
+        const orden = row['Orden'] || row['ORDEN'] || '';
+        const activo = row['Activo'] || row['ACTIVO'] || '';
+        const atRetiro = row['AT de Retiro'] || row['AT Retiro'] || row['AT DE RETIRO'] || '';
+        const siadRetiro = row['SIAD Retiro'] || row['Siad Retiro'] || row['SIAD RETIRO'] || '';
+        const ordenRetiro = row['Orden de Retiro'] || row['Orden Retiro'] || row['ORDEN DE RETIRO'] || '';
         const coordenadaX = row['Coordenada X'] || row['X'] || row['Longitud'] || '';
         const coordenadaY = row['Coordenada Y'] || row['Y'] || row['Latitud'] || '';
         const fechaAsignacion = row['Fecha de Asignacion'] || row['Fecha Inicio'] || '';
         const fechaFinConstruccion = row['Fecha de Fin de Construccion'] || row['Fecha Fin Construcción'] || '';
         const fechaTerminoCampo = row['Fecha Termino en Campo'] || '';
         const fechaCapitalizacion = row['Fecha de Capitalizacion'] || row['Fecha Capitalizada'] || '';
-        const contrato = row['Contrato'] || '';
+        // Strict literal "Contrato" column extraction for SIAD PLUS
+        const rawContrato = row['Contrato'] || row['contrato'] || row['CONTRATO'] || row['Contrato '] || row['CONTRATO '] || '';
+        
+        const isGenericOrDate = (val: any) => {
+          const s = String(val || '').trim();
+          const u = s.toUpperCase();
+          if (!s) return true;
+          if (u === 'CONTRATO' || u.includes('ADMINISTRAC') || u === 'SI' || u === 'NO') return true;
+          if (/^\d{4}[\.\/-]\d{2}[\.\/-]\d{2}$/.test(s)) return true;
+          return false;
+        };
+
+        const validContrato = !isGenericOrDate(rawContrato) ? String(rawContrato).trim() : '';
+
+        const contratistaKey = Object.keys(row || {}).find(k => k.toLowerCase().trim().includes('contratista'));
+        const contratista = (contratistaKey ? row[contratistaKey] : '') || row['Contratista'] || row['CONTRATISTA'] || row['Empresa Contratista'] || '';
+
         const fechaPago = row['Fecha de Pago'] || row['Fecha Pago'] || row['Pago'] || '';
 
         const keys: IGeneric = { pk, sk: solicitudPo };
@@ -786,42 +836,42 @@ export class ObraService {
         }
 
         const data: IObra = {
+          ...(existing || {}),
           pk,
           sk: solicitudPo,
           solicitudPo,
-          anio,
-          at: at || (existing?.at ?? ''),
-          obra: obra || (existing?.obra ?? ''),
-          tipoObra: tipoObra || (existing?.tipoObra ?? ''),
-          rd: rd || (existing?.rd ?? ''),
-          nombreSolicitante: nombreSolicitante || (existing?.nombreSolicitante ?? ''),
-          orden: orden || (existing?.orden ?? ''),
-          activo: activo || (existing?.activo ?? ''),
-          contrato: contrato || (existing?.contrato ?? ''),
-          ordenRetiro: ordenRetiro || (existing?.ordenRetiro ?? ''),
-          fechaAsignacion: fechaAsignacion || (existing?.fechaAsignacion ?? ''),
-          fechaFinConstruccion: fechaFinConstruccion || (existing?.fechaFinConstruccion ?? ''),
-          fechaTerminoCampo: fechaTerminoCampo || (existing?.fechaTerminoCampo ?? ''),
-          fechaCapitalizacion: fechaCapitalizacion || (existing?.fechaCapitalizacion ?? ''),
-          poblacion: poblacion || (existing?.poblacion ?? ''),
-          municipio: municipio || (existing?.municipio ?? ''),
-          fechaPago: fechaPago || (existing?.fechaPago ?? ''),
-
-          // Preserve bitacora metadata fields during excel imports
-          oficio: existing?.oficio ?? '',
-          fechaAut: existing?.fechaAut ?? '',
-          materialesSalida: existing?.materialesSalida ?? '',
-          fechaSupervision: existing?.fechaSupervision ?? '',
-
-          // Preserve oficios and report metadata
-          oficioConsecutivo: existing?.oficioConsecutivo ?? undefined,
-          atRetiro: existing?.atRetiro ?? '',
-          siadRetiro: existing?.siadRetiro ?? '',
-          coordenadaX: coordenadaX || (existing?.coordenadaX ?? ''),
-          coordenadaY: coordenadaY || (existing?.coordenadaY ?? ''),
+          anio: anio || existing?.anio || new Date().getFullYear().toString(),
+          at: at || existing?.at || '',
+          obra: obra || existing?.obra || 'Importada',
+          tipoObra: tipoObra || existing?.tipoObra || 'SSEEBRA',
+          rd: (poblacion && municipio) ? `${poblacion} municipio de ${municipio}` : (existing?.rd || ''),
+          nombreSolicitante: nombreSolicitante || existing?.nombreSolicitante || '',
+          poblacion: poblacion || existing?.poblacion || '',
+          municipio: municipio || existing?.municipio || '',
+          area: area || (existing as any)?.area || '',
+          orden: orden || existing?.orden || '',
+          activo: activo || existing?.activo || '',
+          contrato: validContrato || existing?.contrato || '',
+          contratista: (contratista && !isGenericOrDate(contratista)) ? String(contratista).trim() : ((existing as any)?.contratista || ''),
+          atRetiro: atRetiro || (existing as any)?.atRetiro || '',
+          siadRetiro: siadRetiro || (existing as any)?.siadRetiro || '',
+          ordenRetiro: ordenRetiro || existing?.ordenRetiro || '',
+          fechaAsignacion: fechaAsignacion || existing?.fechaAsignacion || '',
+          fechaFinConstruccion: fechaFinConstruccion || existing?.fechaFinConstruccion || '',
+          fechaTerminoCampo: fechaTerminoCampo || existing?.fechaTerminoCampo || '',
+          fechaCapitalizacion: fechaCapitalizacion || existing?.fechaCapitalizacion || '',
+          fechaPago: fechaPago || existing?.fechaPago || '',
+          coordenadaX: coordenadaX || existing?.coordenadaX || '',
+          coordenadaY: coordenadaY || existing?.coordenadaY || '',
+          
+          oficio: existing?.oficio || '',
+          fechaAut: existing?.fechaAut || '',
+          materialesSalida: existing?.materialesSalida || '',
+          fechaSupervision: existing?.fechaSupervision || '',
+          oficioConsecutivo: existing?.oficioConsecutivo,
           diasObraAPORTACIONES: existing?.diasObraAPORTACIONES,
 
-          estatus: 'PENDIENTE',
+          estatus: existing?.estatus || 'PENDIENTE',
         };
 
         data.estatus = this.determineEstatus(data);

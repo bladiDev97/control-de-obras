@@ -20,8 +20,12 @@ export interface Obra {
   planoPdf?: string;
   poblacion?: string;
   municipio?: string;
+  area?: string;
+  nombreArea?: string;
   fechaProgramada?: string;
   fechaPago?: string;
+  fechaAut?: string;
+  fechaSupervision?: string;
 
   // Reports and contractor metadata fields
   oficioConsecutivo?: number;

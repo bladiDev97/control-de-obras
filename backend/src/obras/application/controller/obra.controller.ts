@@ -135,11 +135,16 @@ export class ObraController {
 
   /** Update an Obra */
   @Post(Routes.Obras.Update)
-  public async update(@Res() response: Response, @Body() dto: ObrasUpdateDto): Promise<any> {
+  @UseInterceptors(FileInterceptor('planoPdf', { storage }))
+  public async update(
+    @Res() response: Response,
+    @Body() dto: ObrasUpdateDto,
+    @UploadedFile() planoPdf?: any,
+  ): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
-    // When updating, we expect the unique key (sk) to be provided as id/solicitudPo
     const id = dto.solicitudPo;
-    const result = await this.obraService.update(pk, id, dto);
+    const planoPdfPath = planoPdf ? `uploads/${planoPdf.filename}` : undefined;
+    const result = await this.obraService.update(pk, id, dto, planoPdfPath);
     const jsonResponse = new JsonResponse({
       data: result,
       message: 'Work updated successfully',

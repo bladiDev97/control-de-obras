@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button, TextField, Typography, MenuItem, FormControlLabel, Switch, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useObras } from '../hooks/useObras';
 import { obrasService, areasService } from '../services/obras.service';
 import { contratosService } from '../../contratos/services/contratos.service';
@@ -10,6 +11,18 @@ import { Obra } from '../types/obra.types';
 
 // Declare global augmentation for the geo map window reference
 declare global { interface Window { __geoMapWindow?: Window | null } }
+
+const formatDateForInput = (val?: string): string => {
+  if (!val) return '';
+  const s = String(val).trim();
+  if (/^\d{4}[\.\/-]\d{2}[\.\/-]\d{2}/.test(s)) {
+    return s.slice(0, 10).replace(/[\.\/]/g, '-');
+  }
+  if (s.includes('T')) {
+    return s.split('T')[0];
+  }
+  return s;
+};
 
 export default function ObrasPage() {
   const { obras, loading, refetch } = useObras();
@@ -77,6 +90,7 @@ export default function ObrasPage() {
     fechaAut: '',
     fechaSupervision: '',
     fechaAsignacion: '',
+    fechaFinConstruccion: '',
     fechaTerminoCampo: '',
     fechaCapitalizacion: '',
     estatus: '',
@@ -118,35 +132,76 @@ export default function ObrasPage() {
       contratista: selected ? (selected.contratista || '') : '',
     });
   };
-
   const columns: Column<Obra>[] = [
     {
       key: 'solicitudPo',
       label: 'Solicitud/PO',
+      width: '10%',
       render: (row) => (
         <span
           onClick={() => setPreviewObra(row)}
+          title={row.solicitudPo}
           style={{
             color: '#1d4ed8',
             textDecoration: 'underline',
             fontWeight: '700',
             cursor: 'pointer',
-            fontSize: '0.85rem'
+            fontSize: '0.74rem',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'block'
           }}
         >
           {row.solicitudPo}
         </span>
       )
     },
-    { key: 'at', label: 'AT' },
-    { key: 'obra', label: 'Obra' },
-    { key: 'anio', label: 'Año' },
-    { key: 'tipoObra', label: 'Tipo de Obra' },
-    { key: 'activo', label: 'Activo' },
-    { key: 'orden', label: 'Orden' },
+    { key: 'at', label: 'AT', width: '5%' },
+    { key: 'obra', label: 'Obra', width: '5%' },
+    { key: 'anio', label: 'Año', width: '4%' },
+    {
+      key: 'tipoObra',
+      label: 'Tipo Obra',
+      width: '9%',
+      render: (row: any) => {
+        const tipo = (row.tipoObra || '').toUpperCase();
+        if (tipo === 'SSEEBRA' || tipo === 'APORTACIONES') {
+          const dias = row.diasObraAPORTACIONES === 28 ? 28 : 9;
+          const is9 = dias === 9;
+          const bg = is9 ? '#fee2e2' : '#dbeafe';
+          const fg = is9 ? '#dc2626' : '#1d4ed8';
+          const border = is9 ? '1px solid #fca5a5' : '1px solid #93c5fd';
+
+          return (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <span>{tipo}</span>
+              <span
+                style={{
+                  backgroundColor: bg,
+                  color: fg,
+                  border: border,
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '0.66rem',
+                  lineHeight: '1.2',
+                }}
+              >
+                {dias}D
+              </span>
+            </div>
+          );
+        }
+        return tipo || '-';
+      },
+    },
+    { key: 'activo', label: 'Activo', width: '6%' },
+    { key: 'orden', label: 'Orden', width: '8%' },
     {
       key: 'rd',
       label: 'RD',
+      width: '12%',
       render: (row) => {
         const parts = [];
         if ((row as any).poblacion) parts.push((row as any).poblacion.toUpperCase());
@@ -156,15 +211,14 @@ export default function ObrasPage() {
           <div
             title={text}
             style={{
-              maxWidth: '140px',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              fontSize: '0.8rem',
+              fontSize: '0.72rem',
               lineHeight: '1.2'
             }}
           >
-            {text}
+            {text || '-'}
           </div>
         );
       }
@@ -172,15 +226,15 @@ export default function ObrasPage() {
     {
       key: 'nombreSolicitante',
       label: 'Nombre',
+      width: '14%',
       render: (row) => (
         <div
           title={row.nombreSolicitante || ''}
           style={{
-            maxWidth: '200px',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            fontSize: '0.8rem',
+            fontSize: '0.72rem',
             lineHeight: '1.2',
             textAlign: 'left'
           }}
@@ -192,6 +246,7 @@ export default function ObrasPage() {
     {
       key: 'estatus',
       label: 'Estatus',
+      width: '9%',
       render: (row) => {
         let bg = '#fef3c7'; // soft yellow for PENDIENTE (ASIGNAR)
         let fg = '#d97706';
@@ -257,18 +312,18 @@ export default function ObrasPage() {
           <span
             onClick={handleEstatusClick}
             style={{
-              padding: '6px 12px',
-              borderRadius: '20px',
+              padding: '3px 7px',
+              borderRadius: '12px',
               backgroundColor: bg,
               color: fg,
               border: border,
               fontWeight: '800',
-              fontSize: '0.7rem',
-              letterSpacing: '0.5px',
+              fontSize: '0.64rem',
+              letterSpacing: '0.2px',
               textTransform: 'uppercase',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
               display: 'inline-block',
               cursor: isInteractive ? 'pointer' : 'default',
+              whiteSpace: 'nowrap'
             }}
           >
             {displayLabel}
@@ -279,45 +334,80 @@ export default function ObrasPage() {
 
     {
       key: 'diasParaVencerse' as any,
-      label: 'Días para Vencerse',
-      render: (row: any) => typeof row.diasParaVencerse === 'number' ? row.diasParaVencerse : 0,
+      label: 'POR VENCER',
+      width: '10%',
+      render: (row: any) => {
+        // Para obras ya concluidas (con fecha de término, capitalizadas o terminadas), poner vacío / guión
+        if (row.fechaTerminoCampo || row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA' || (row as any).fechaFinConstruccion) {
+          return <span style={{ color: '#9ca3af', fontWeight: 600 }}>-</span>;
+        }
+
+        const days = typeof row.diasParaVencerse === 'number' ? row.diasParaVencerse : 0;
+        let bg = '#dcfce7'; // Verde (11+ días)
+        let fg = '#15803d';
+        let border = '1px solid #86efac';
+
+        if (days >= 0 && days <= 3) {
+          bg = '#fee2e2'; // Rojo (0 a 3 días)
+          fg = '#dc2626';
+          border = '1px solid #fca5a5';
+        } else if (days >= 4 && days <= 10) {
+          bg = '#fef3c7'; // Amarillo (4 a 10 días)
+          fg = '#d97706';
+          border = '1px solid #fde68a';
+        }
+
+        return (
+          <span
+            style={{
+              backgroundColor: bg,
+              color: fg,
+              border: border,
+              padding: '2px 8px',
+              borderRadius: '10px',
+              fontWeight: '800',
+              fontSize: '0.72rem',
+              display: 'inline-block',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {days} {days === 1 ? 'día' : 'días'}
+          </span>
+        );
+      },
     },
     {
       key: 'dias' as any,
       label: 'Días',
+      width: '4%',
       render: (row: any) => typeof row.dias === 'number' ? row.dias : 0,
     },
     {
       key: 'coordenadas' as any,
-      label: 'Georeferencias',
+      label: 'GEOS',
+      width: '9%',
       render: (row) => {
         const x = (row as any).coordenadaX || '';
         const y = (row as any).coordenadaY || '';
         if (!x && !y) return <span style={{ color: '#9ca3af' }}>-</span>;
 
+        const numY = parseFloat(y);
+        const numX = parseFloat(x);
+        const displayCoords = (!isNaN(numY) && !isNaN(numX))
+          ? `${numY.toFixed(2)}, ${numX.toFixed(2)}`
+          : `${y}, ${x}`;
+
         const handleOpenMap = (e: React.MouseEvent) => {
           e.stopPropagation();
           const url = `https://earth.google.com/web/search/${y},${x}`;
-          console.log('[GEO] Click →', url);
-          console.log('[GEO] __geoMapWindow:', window.__geoMapWindow, 'closed:', window.__geoMapWindow?.closed);
-
-          // window.open('', 'name') returns existing window with that name
-          // WITHOUT opening a new one. If no window with that name exists, opens blank.
-          // Then we navigate it. This is the most reliable single-window approach.
           try {
             const w = window.open('', 'geo_obra_mapa');
             if (w) {
-              if (w.location.href === 'about:blank' || w.location.href === '') {
-                console.log('[GEO] Ventana nueva (blank) — navegando a Google Earth');
-              } else {
-                console.log('[GEO] Ventana existente encontrada — reutilizando');
-              }
               w.location.href = url;
               w.focus();
               window.__geoMapWindow = w;
             }
-          } catch (err) {
-            console.warn('[GEO] Error, abriendo con _blank:', err);
+          } catch {
             window.__geoMapWindow = window.open(url, 'geo_obra_mapa') || null;
           }
         };
@@ -325,23 +415,22 @@ export default function ObrasPage() {
         return (
           <span
             onClick={handleOpenMap}
-            title="Ver en mapa"
+            title={`${y}, ${x}`}
             style={{
-              fontSize: '0.70rem',
+              fontSize: '0.68rem',
               whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: 'block',
               cursor: 'pointer',
               color: '#1d4ed8',
-              textDecoration: 'underline',
-              textDecorationStyle: 'dotted',
             }}
           >
-            {y}, {x}
+            {displayCoords}
           </span>
         );
       }
-    },
-
-
+    }
   ];
 
 
@@ -390,24 +479,38 @@ export default function ObrasPage() {
   const handleConfirmEdit = async () => {
     if (!editing) return;
     try {
-      const { tieneRetiro, contratista, ...payload } = editForm;
+      const { tieneRetiro, contratista, ...payload } = editForm as any;
       if (!tieneRetiro) {
         payload.atRetiro = '';
         payload.ordenRetiro = '';
         payload.siadRetiro = '';
       }
 
-      const cleanPayload: any = {
-        ...payload,
-        diasObraAPORTACIONES: payload.diasObraAPORTACIONES ? Number(payload.diasObraAPORTACIONES) : undefined,
-      };
-
       if (payload.poblacion && payload.municipio) {
-        cleanPayload.rd = `${payload.poblacion} municipio de ${payload.municipio}`;
+        payload.rd = `${payload.poblacion} municipio de ${payload.municipio}`;
       }
 
-      await obrasService.update(cleanPayload as any);
+      if (payload.fechaFinConstruccion) {
+        payload.fechaTermino = payload.fechaFinConstruccion;
+      }
+
+      const cleanPayload: any = {};
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v !== '' && v !== undefined && v !== null) {
+          if (k === 'diasObraAPORTACIONES' || k === 'diasSinCapitalizar' || k === 'oficioConsecutivo') {
+            const num = Number(v);
+            if (!isNaN(num)) cleanPayload[k] = num;
+          } else {
+            cleanPayload[k] = v;
+          }
+        }
+      });
+
+      cleanPayload.solicitudPo = editForm.solicitudPo || editing.solicitudPo;
+
+      await obrasService.update(cleanPayload as any, planoPdf || undefined);
       setEditing(null);
+      setPlanoPdf(null);
       refetch();
     } catch (err) {
       console.error('Error actualizando obra:', err);
@@ -433,83 +536,135 @@ export default function ObrasPage() {
 
   // Helper to parse dates locally and avoid UTC shifting
   const parseLocalDate = (dateStr: string): Date => {
-    if (!dateStr) return new Date(NaN);
-    const cleanStr = dateStr.split(' ')[0].trim();
-    if (cleanStr.includes('-')) {
-      const parts = cleanStr.split('-');
+    if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
+    const cleanStr = dateStr.split('T')[0].split(' ')[0].trim();
+    if (cleanStr.includes('.') || cleanStr.includes('-')) {
+      const delimiter = cleanStr.includes('.') ? '.' : '-';
+      const parts = cleanStr.split(delimiter);
       if (parts.length === 3) {
-        const yyyy = parseInt(parts[0], 10);
-        const mm = parseInt(parts[1], 10) - 1;
-        const dd = parseInt(parts[2], 10);
-        return new Date(yyyy, mm, dd);
+        if (parts[0].length === 4) {
+          return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        } else if (parts[2].length === 4) {
+          return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+        }
+      }
+    } else if (cleanStr.includes('/')) {
+      const parts = cleanStr.split('/');
+      if (parts.length === 3) {
+        if (parts[2].length === 4) {
+          return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+        } else if (parts[0].length === 4) {
+          return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        }
       }
     }
     return new Date(dateStr);
   };
 
-  const calculateDiasParaVencerse = (row: Obra): number | string => {
+  // 1. Días Transcurridos desde la fecha de inicio / pago hasta HOY
+  const calculateDias = (row: Obra): number | string => {
     const tipo = (row.tipoObra || '').toUpperCase();
-    const isAportaciones = tipo === 'APORTACIONES';
-    
-    if (isAportaciones) {
-      if (!row.fechaPago) return '';
+    const isSseebra = tipo === 'SSEEBRA' || tipo === 'APORTACIONES';
+
+    let rawDate = '';
+    if (isSseebra) {
+      // Para SSEEBRA los días transcurridos son desde que se pagó la obra
+      rawDate = row.fechaPago || (row as any).fechaAsignacion || (row as any).fechaProgramada || (row as any).fechaAut || '';
+    } else {
+      // Para RPT y FSUE son desde la fecha de inicio / asignacion / programada
+      rawDate = (row as any).fechaAsignacion || (row as any).fechaProgramada || (row as any).fechaAut || row.fechaPago || '';
+    }
+
+    if (!rawDate) return '';
+    try {
+      const startDate = parseLocalDate(rawDate);
+      if (isNaN(startDate.getTime())) return '';
+      startDate.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - startDate.getTime();
+      const elapsedDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return elapsedDays >= 0 ? elapsedDays : 0;
+    } catch {
+      return '';
+    }
+  };
+
+  // 2. Días por vencer (Días restantes antes del límite)
+  const calculateDiasParaVencerse = (row: Obra): number => {
+    // Si la obra ya está concluida o capitalizada, no aplica plazo de vencimiento
+    if (row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA' || (row as any).fechaTerminoCampo) {
+      return 0;
+    }
+
+    const tipo = (row.tipoObra || '').toUpperCase();
+    const isSseebra = tipo === 'SSEEBRA' || tipo === 'APORTACIONES';
+
+    if (isSseebra) {
+      const rawPago = row.fechaPago || (row as any).fechaAsignacion;
+      if (!rawPago) return 0;
       try {
-        const pagoDate = parseLocalDate(row.fechaPago);
-        if (isNaN(pagoDate.getTime())) return '';
+        const pagoDate = parseLocalDate(rawPago);
+        if (isNaN(pagoDate.getTime())) return 0;
         const diasSseebra = row.diasObraAPORTACIONES || 9;
         const limitDate = new Date(pagoDate);
         limitDate.setDate(limitDate.getDate() + diasSseebra);
         limitDate.setHours(0, 0, 0, 0);
         const diffTime = limitDate.getTime() - today.getTime();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return daysLeft < 0 ? 0 : daysLeft;
       } catch {
-        return '';
+        return 0;
       }
     } else {
-      // RPT y FSU
-      const rawFechaProg = (row as any).fechaProgramada;
-      if (!rawFechaProg) return '';
+      // RPT y FSUE: basarse en fechaProgramada (o fechaAsignacion)
+      const rawFechaProg = (row as any).fechaProgramada || (row as any).fechaAsignacion;
+      if (!rawFechaProg) return 0;
       try {
         const progDate = parseLocalDate(rawFechaProg);
-        if (isNaN(progDate.getTime())) return '';
+        if (isNaN(progDate.getTime())) return 0;
         progDate.setHours(0, 0, 0, 0);
         const diffTime = progDate.getTime() - today.getTime();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return daysLeft < 0 ? 0 : daysLeft;
       } catch {
-        return '';
+        return 0;
       }
     }
   };
 
-  const calculateDias = (row: Obra): number | string => {
-    const tipo = (row.tipoObra || '').toUpperCase();
-    const isAportaciones = tipo === 'APORTACIONES';
-    
-    if (isAportaciones) {
-      if (!row.fechaPago) return '';
-      try {
-        const pagoDate = parseLocalDate(row.fechaPago);
-        if (isNaN(pagoDate.getTime())) return '';
-        pagoDate.setHours(0, 0, 0, 0);
-        const diffTime = today.getTime() - pagoDate.getTime();
-        return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      } catch {
-        return '';
-      }
-    } else {
-      // RPT y FSU
-      const rawFechaAsignacion = (row as any).fechaAsignacion;
-      if (!rawFechaAsignacion) return '';
-      try {
-        const asigDate = parseLocalDate(rawFechaAsignacion);
-        if (isNaN(asigDate.getTime())) return '';
-        asigDate.setHours(0, 0, 0, 0);
-        const diffTime = today.getTime() - asigDate.getTime();
-        return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      } catch {
-        return '';
-      }
+  const getSortGroupRank = (row: Obra): number => {
+    const isCapitalizada = row.estatus === 'CAPITALIZADA';
+    const hasFechaFin = !!(row.fechaFinConstruccion || (row as any).fechaTermino);
+    const hasFechaCampo = !!(row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '');
+
+    // 1. Primero arriba: Obras CAPITALIZADAS
+    if (isCapitalizada) return 1;
+
+    // 2. Segundo: Obras con AMBAS fechas (Fin de Construcción Y Término en Campo)
+    if (hasFechaFin && hasFechaCampo) return 2;
+
+    // 3. Tercero: Obras con Fecha de Término en Campo (pero sin Fin de Construcción)
+    if (hasFechaCampo && !hasFechaFin) return 3;
+
+    // 4. Cuarto: Obras con Fecha de Término de Construcción PERO NO tienen Fecha en Campo
+    if (hasFechaFin && !hasFechaCampo) return 4;
+
+    // 5. Finalmente hasta abajo: Las demás obras (pendientes/asignadas sin fechas)
+    return 5;
+  };
+
+  const customSortObras = (a: Obra, b: Obra): number => {
+    const rankA = getSortGroupRank(a);
+    const rankB = getSortGroupRank(b);
+
+    if (rankA !== rankB) {
+      return rankA - rankB; // Rank 1 -> Rank 2 -> Rank 3 -> Rank 4 -> Rank 5
     }
+
+    // Dentro del mismo grupo: Ordenar por 'dias' (Días transcurridos) de MAYOR a MENOR (descendente)
+    const diasA = typeof (a as any).dias === 'number' ? (a as any).dias : (parseInt((a as any).dias, 10) || 0);
+    const diasB = typeof (b as any).dias === 'number' ? (b as any).dias : (parseInt((b as any).dias, 10) || 0);
+
+    return diasB - diasA; // Mayor a Menor
   };
 
   const processedObras = obras.map((o) => {
@@ -522,6 +677,8 @@ export default function ObrasPage() {
     };
   });
 
+
+
   return (
     <div>
       <h1 className="page-title">
@@ -531,7 +688,7 @@ export default function ObrasPage() {
       {loading ? (
         <Typography>Cargando obras...</Typography>
       ) : (
-        <ReusableTable columns={columns} rows={processedObras} />
+        <ReusableTable columns={columns} rows={processedObras} customSort={customSortObras} />
       )}
 
       {/* Modal para Terminar Obra */}
@@ -647,7 +804,7 @@ export default function ObrasPage() {
               }
               fullWidth
             >
-              <MenuItem value="APORTACIONES">APORTACIONES</MenuItem>
+              <MenuItem value="SSEEBRA">SSEEBRA</MenuItem>
               <MenuItem value="RPT">RPT</MenuItem>
               <MenuItem value="FSUE">FSUE</MenuItem>
             </TextField>
@@ -944,7 +1101,7 @@ export default function ObrasPage() {
                     variant="outlined"
                     color="primary"
                     size="small"
-                    href={`http://localhost:3000/${(previewObra as any).planoPdf}`}
+                    href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${(previewObra as any).planoPdf}`}
                     target="_blank"
                   >
                     Ver Plano PDF
@@ -982,13 +1139,14 @@ export default function ObrasPage() {
                   atRetiro: (row as any).atRetiro || '',
                   siadRetiro: (row as any).siadRetiro || '',
                   ordenRetiro: (row as any).ordenRetiro || '',
-                  fechaPago: (row as any).fechaPago || '',
-                  fechaProgramada: (row as any).fechaProgramada || '',
-                  fechaAut: (row as any).fechaAut || '',
-                  fechaSupervision: (row as any).fechaSupervision || '',
-                  fechaAsignacion: row.fechaAsignacion || '',
-                  fechaTerminoCampo: row.fechaTerminoCampo || '',
-                  fechaCapitalizacion: row.fechaCapitalizacion || '',
+                  fechaPago: formatDateForInput((row as any).fechaPago),
+                  fechaProgramada: formatDateForInput((row as any).fechaProgramada),
+                  fechaAut: formatDateForInput((row as any).fechaAut),
+                  fechaSupervision: formatDateForInput((row as any).fechaSupervision),
+                  fechaAsignacion: formatDateForInput(row.fechaAsignacion),
+                  fechaFinConstruccion: formatDateForInput((row as any).fechaFinConstruccion || (row as any).fechaTermino),
+                  fechaTerminoCampo: formatDateForInput(row.fechaTerminoCampo),
+                  fechaCapitalizacion: formatDateForInput(row.fechaCapitalizacion),
                   estatus: row.estatus || '',
                   area: (row as any).area || '',
                   diasObraAPORTACIONES: (row as any).diasObraAPORTACIONES || '',
@@ -1019,11 +1177,13 @@ export default function ObrasPage() {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '16px',
-            marginTop: '8px',
+            gap: '22px',
+            paddingTop: '28px',
+            paddingBottom: '20px',
+            paddingLeft: '8px',
+            paddingRight: '14px',
             maxHeight: '70vh',
             overflowY: 'auto',
-            paddingRight: '8px',
           }}
         >
           <div style={{ display: 'flex', gap: '16px' }}>
@@ -1120,7 +1280,7 @@ export default function ObrasPage() {
               onChange={(e) => setEditForm({ ...editForm, tipoObra: e.target.value })}
               fullWidth
             >
-              <MenuItem value="APORTACIONES">APORTACIONES</MenuItem>
+              <MenuItem value="SSEEBRA">SSEEBRA</MenuItem>
               <MenuItem value="RPT">RPT</MenuItem>
               <MenuItem value="FSUE">FSUE</MenuItem>
             </TextField>
@@ -1283,11 +1443,11 @@ export default function ObrasPage() {
           )}
 
           {/* Fechas de Seguimiento */}
-          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '4px' }}>
-            <Typography variant="subtitle2" style={{ fontWeight: 'bold', color: '#0f172a', marginBottom: '12px' }}>
-              Fechas de Seguimiento
+          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px', marginTop: '8px' }}>
+            <Typography variant="subtitle2" style={{ fontWeight: 'bold', color: '#0f172a', marginBottom: '14px', fontSize: '0.95rem' }}>
+              📅 Fechas de Seguimiento
             </Typography>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '18px' }}>
               <TextField
                 label="Fecha de Autorización"
                 type="date"
@@ -1316,6 +1476,15 @@ export default function ObrasPage() {
                 fullWidth
               />
               <TextField
+                label="Fecha de Término"
+                type="date"
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                value={editForm.fechaFinConstruccion}
+                onChange={(e) => setEditForm({ ...editForm, fechaFinConstruccion: e.target.value })}
+                fullWidth
+              />
+              <TextField
                 label="Fecha Término en Campo"
                 type="date"
                 size="small"
@@ -1333,6 +1502,49 @@ export default function ObrasPage() {
                 onChange={(e) => setEditForm({ ...editForm, fechaCapitalizacion: e.target.value })}
                 fullWidth
               />
+            </div>
+          </div>
+
+          {/* Plano PDF */}
+          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px', marginTop: '8px' }}>
+            <Typography variant="subtitle2" style={{ fontWeight: 'bold', color: '#0f172a', marginBottom: '14px', fontSize: '0.95rem' }}>
+              📄 Plano PDF de la Obra
+            </Typography>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<CloudUploadIcon />}
+                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, color: '#008E60', borderColor: '#008E60' }}
+              >
+                {planoPdf ? 'Cambiar Archivo PDF' : 'Adjuntar Plano PDF'}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  hidden
+                  onChange={(e) => setPlanoPdf(e.target.files?.[0] || null)}
+                />
+              </Button>
+              {planoPdf ? (
+                <Typography variant="body2" style={{ color: '#059669', fontWeight: 600 }}>
+                  📄 Seleccionado: {planoPdf.name}
+                </Typography>
+              ) : editing?.planoPdf ? (
+                <Button
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${editing.planoPdf}`}
+                  target="_blank"
+                  sx={{ fontWeight: 600, textTransform: 'none' }}
+                >
+                  Ver Plano PDF Actual
+                </Button>
+              ) : (
+                <Typography variant="body2" style={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                  Sin plano adjunto
+                </Typography>
+              )}
             </div>
           </div>
         </div>

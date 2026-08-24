@@ -20,8 +20,21 @@ export const obrasService = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data.data);
   },
-  update: (data: Partial<Obra> & { solicitudPo: string }) =>
-    api.post<ApiResponse<Obra>>('/obras/update', data).then((r) => r.data.data),
+  update: (data: Partial<Obra> & { solicitudPo: string }, planoPdf?: File) => {
+    if (planoPdf) {
+      const formData = new FormData();
+      Object.entries(data).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) {
+          formData.append(k, String(v));
+        }
+      });
+      formData.append('planoPdf', planoPdf);
+      return api.post<ApiResponse<Obra>>('/obras/update', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }).then((r) => r.data.data);
+    }
+    return api.post<ApiResponse<Obra>>('/obras/update', data).then((r) => r.data.data);
+  },
   getBitacoras: (id: string) =>
     api.get<ApiResponse<any[]>>(`/obras/${id}/bitacoras`).then((r) => r.data.data),
   getOficio: (id: string) =>

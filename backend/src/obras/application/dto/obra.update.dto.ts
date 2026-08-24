@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ObrasUpdateDto {
@@ -65,6 +66,11 @@ export class ObrasUpdateDto {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  fechaTermino?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
   fechaTerminoCampo?: string;
 
   @ApiPropertyOptional()
@@ -73,6 +79,7 @@ export class ObrasUpdateDto {
   fechaCapitalizacion?: string;
 
   @ApiPropertyOptional()
+  @Transform(({ value }) => (value === '' || value === undefined || value === null ? undefined : Number(value)))
   @IsNumber()
   @IsOptional()
   diasSinCapitalizar?: number;
@@ -83,6 +90,7 @@ export class ObrasUpdateDto {
   contrato?: string;
 
   @ApiPropertyOptional()
+  @Transform(({ value }) => (value === '' || value === undefined || value === null ? undefined : Number(value)))
   @IsNumber()
   @IsOptional()
   diasObraAPORTACIONES?: number;
@@ -114,11 +122,10 @@ export class ObrasUpdateDto {
   fechaSupervision?: string;
 
   @ApiPropertyOptional()
+  @Transform(({ value }) => (value === '' || value === undefined || value === null ? undefined : Number(value)))
   @IsNumber()
   @IsOptional()
   oficioConsecutivo?: number;
-
-
 
   @ApiPropertyOptional()
   @IsString()
@@ -166,6 +173,7 @@ export class ObrasUpdateDto {
   fechaPago?: string;
 
   @ApiPropertyOptional({ enum: ['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA'] })
+  @Transform(({ value }) => (value === '' || value === undefined || value === null ? undefined : value))
   @IsEnum(['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA'])
   @IsOptional()
   estatus?: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA';

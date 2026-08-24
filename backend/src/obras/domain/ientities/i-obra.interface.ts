@@ -22,10 +22,12 @@ export interface IObra extends IGenericEntity {
   diasSinCapitalizar?: number;
   diasObraAPORTACIONES?: number;
   contrato?: string;
+  contratista?: string;
   planoPdf?: string;
   poblacion?: string;
   municipio?: string;
   area?: string;
+  nombreArea?: string;
   fechaProgramada?: string;
   fechaPago?: string;
   
