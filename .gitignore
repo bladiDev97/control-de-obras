@@ -38,3 +38,10 @@ frontend/inject_print.py
 frontend/inspect_*.js
 frontend/fix_reportes.py
 frontend/extract_history.py
+
+# Serverless y Backups
+.serverless/
+backend/.serverless/
+backend/backups/
+frontend/.env.production
+
