@@ -98,4 +98,24 @@ ${err.stack}
       return;
     }
   }
+
+  @Post(Routes.Config.TestWhatsappAlert)
+  public async testWhatsappAlert(@Res() response: Response): Promise<any> {
+    const pk = 'bladi.PigeonSave@gmail.com';
+    try {
+      const sentCount = await this.configService.testWhatsappAlert(pk);
+      const jsonResponse = new JsonResponse({
+        data: sentCount,
+        message: `Prueba de alertas completada. Se envió aviso a WhatsApp.`,
+      });
+      response.status(HttpStatus.OK).send(jsonResponse);
+      return jsonResponse;
+    } catch (err: any) {
+      response.status(HttpStatus.BAD_REQUEST).send({
+        success: false,
+        message: `Fallo al probar alertas por vencer: ${err.message}`,
+      });
+      return;
+    }
+  }
 }

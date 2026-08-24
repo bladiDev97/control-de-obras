@@ -13,6 +13,10 @@ export class ConfigService {
     private readonly mailService: MailService,
   ) {}
 
+  public async getRawSmtp(pk: string): Promise<any> {
+    return await this.configRepository.getSmtpConfig(pk);
+  }
+
   public async getSmtp(pk: string): Promise<any> {
     const config = await this.configRepository.getSmtpConfig(pk);
     if (!config) return null;
@@ -24,9 +28,6 @@ export class ConfigService {
     }
     if (result.whatsappApiKey) {
       result.whatsappApiKey = '********';
-    }
-    if (result.whatsappPhone) {
-      result.whatsappPhone = '********';
     }
     return result;
   }
@@ -123,8 +124,9 @@ export class ConfigService {
       throw new Error('Incomplete WhatsApp configuration details provided.');
     }
     const axios = require('axios');
+    const cleanPhone = data.whatsappPhone.replace(/[^0-9]/g, '');
     const text = encodeURIComponent('Este es un mensaje de prueba desde el Sistema de Control de Obras CFE.');
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${data.whatsappPhone}&text=${text}&apikey=${data.whatsappApiKey}`;
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${cleanPhone}&text=${text}&apikey=${data.whatsappApiKey}`;
     
     try {
       const response = await axios.get(url);
@@ -135,6 +137,29 @@ export class ConfigService {
     } catch (err: any) {
       this.logger.error('Error sending WhatsApp test:', err.message);
       throw new Error(`WhatsApp API Error: ${err.message}`);
+    }
+  }
+
+  public async testWhatsappAlert(pk: string): Promise<number> {
+    const config = await this.getRawSmtp(pk);
+    if (!config || !config.whatsappPhone || !config.whatsappApiKey) {
+      throw new Error('No se encontró configuración de WhatsApp (teléfono o API Key).');
+    }
+    const axios = require('axios');
+    const cleanPhone = config.whatsappPhone.replace(/[^0-9]/g, '');
+    const mensaje = `⚠️ *ALERTA DE PRUEBA* ⚠️\n\nPrueba de alertas enviada exitosamente desde el panel de control.\n\n- Sistema de Control de Obras CFE`;
+    const text = encodeURIComponent(mensaje);
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${cleanPhone}&text=${text}&apikey=${config.whatsappApiKey}`;
+    
+    try {
+      const response = await axios.get(url);
+      if (response.data && String(response.data).includes('Message queued')) {
+        return 1;
+      }
+      throw new Error(response.data || 'Error de respuesta de CallMeBot');
+    } catch (err: any) {
+      this.logger.error('Error sending WhatsApp alert test:', err.message);
+      throw new Error(`Error de WhatsApp: ${err.message}`);
     }
   }
 }

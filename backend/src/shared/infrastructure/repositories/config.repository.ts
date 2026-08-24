@@ -71,7 +71,8 @@ export class ConfigRepository extends TypeDORMRepository<ConfigEntity> {
 
     const existing = await this.getSmtpConfig(pk);
     if (existing) {
-      return await super.updateItem(data as ConfigEntity);
+      const mergedData = { ...existing, ...data };
+      return await super.updateItem(mergedData as ConfigEntity);
     } else {
       return await super.createItem(data as ConfigEntity);
     }

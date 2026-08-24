@@ -16,7 +16,8 @@ import {
   DialogActions,
   Box,
   InputAdornment,
-  IconButton
+  IconButton,
+  MenuItem
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -34,6 +35,8 @@ export const ConfiguracionPage: React.FC = () => {
     from: '',
     whatsappPhone: '',
     whatsappApiKey: '',
+    whatsappHourMorning: '09:00',
+    whatsappHourAfternoon: '18:00',
   });
 
   const [loading, setLoading] = useState(true);
@@ -72,6 +75,8 @@ export const ConfiguracionPage: React.FC = () => {
           from: data.from || '',
           whatsappPhone: data.whatsappPhone || '',
           whatsappApiKey: data.whatsappApiKey || '',
+          whatsappHourMorning: data.whatsappHourMorning || '09:00',
+          whatsappHourAfternoon: data.whatsappHourAfternoon || '18:00',
         });
       }
     } catch (err) {
@@ -81,22 +86,49 @@ export const ConfiguracionPage: React.FC = () => {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
+
+  const handleSaveSmtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setSavingSmtp(true);
     try {
       const data = await configService.saveSmtp({
-        ...smtp,
-        port: Number(smtp.port),
+        host: smtp.host,
+        port: Number(smtp.port || 587),
+        user: smtp.user,
+        pass: smtp.pass,
+        from: smtp.from,
       });
       if (data) {
-        setSmtp(data);
-        showNotification('Configuración SMTP guardada exitosamente.', 'success');
+        setSmtp(prev => ({ ...prev, ...data }));
+        showNotification('Configuración de Correo (SMTP) guardada exitosamente.', 'success');
       }
     } catch (err) {
-      showNotification('Error al guardar la configuración SMTP.', 'error');
+      showNotification('Error al guardar la configuración de correo.', 'error');
     } finally {
-      setSaving(false);
+      setSavingSmtp(false);
+    }
+  };
+
+  const handleSaveWhatsapp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setSavingWhatsapp(true);
+    try {
+      const data = await configService.saveSmtp({
+        whatsappPhone: smtp.whatsappPhone,
+        whatsappApiKey: smtp.whatsappApiKey,
+        whatsappHourMorning: smtp.whatsappHourMorning,
+        whatsappHourAfternoon: smtp.whatsappHourAfternoon,
+      });
+      if (data) {
+        setSmtp(prev => ({ ...prev, ...data }));
+        showNotification('Configuración de WhatsApp guardada exitosamente.', 'success');
+      }
+    } catch (err) {
+      showNotification('Error al guardar la configuración de WhatsApp.', 'error');
+    } finally {
+      setSavingWhatsapp(false);
     }
   };
 
@@ -157,6 +189,23 @@ export const ConfiguracionPage: React.FC = () => {
     }
   };
 
+  const handleTestWhatsappAlert = async () => {
+    if (!smtp.whatsappPhone || !smtp.whatsappApiKey) {
+      showNotification('Ingresa el teléfono y API Key para probar.', 'error');
+      return;
+    }
+    setTesting(true);
+    try {
+      const count = await configService.testWhatsappAlert();
+      showNotification(`¡Alerta enviada! Se procesaron ${count} obra(s) por vencer y se enviaron a tu WhatsApp.`, 'success');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Error desconocido';
+      showNotification(`Fallo al probar alertas: ${errorMessage}`, 'error');
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -179,7 +228,7 @@ export const ConfiguracionPage: React.FC = () => {
           <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, color: '#0f172a' }}>
             Servicio de Correo (SMTP)
           </Typography>
-          <form id="configForm" onSubmit={handleSave}>
+          <form id="configForm" onSubmit={handleSaveSmtp}>
             <Grid container spacing={3}>
               <Grid item xs={12} sm={8}>
                 <TextField
@@ -265,7 +314,7 @@ export const ConfiguracionPage: React.FC = () => {
                   color="secondary"
                   startIcon={testing ? <CircularProgress size={18} /> : <CheckCircleOutlineIcon />}
                   onClick={() => setTestDialogOpen(true)}
-                  disabled={testing || saving || !smtp.host || !smtp.user || !smtp.pass}
+                  disabled={testing || savingSmtp || !smtp.host || !smtp.user || !smtp.pass}
                   sx={{ borderRadius: '8px', textTransform: 'none', px: 3 }}
                 >
                   {testing ? 'Verificando...' : 'Probar Conexión'}
@@ -274,8 +323,8 @@ export const ConfiguracionPage: React.FC = () => {
                 <Button
                   type="submit"
                   variant="contained"
-                  startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
-                  disabled={saving || testing}
+                  startIcon={savingSmtp ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
+                  disabled={savingSmtp || testing}
                   sx={{
                     borderRadius: '8px',
                     textTransform: 'none',
@@ -286,7 +335,7 @@ export const ConfiguracionPage: React.FC = () => {
                     }
                   }}
                 >
-                  {saving ? 'Guardando...' : 'Guardar Configuración'}
+                  {savingSmtp ? 'Guardando Correo...' : 'Guardar Configuración SMTP'}
                 </Button>
               </Grid>
             </Grid>
@@ -302,13 +351,13 @@ export const ConfiguracionPage: React.FC = () => {
           <Typography variant="body2" sx={{ mb: 3, color: '#64748b' }}>
             Para habilitar este servicio gratuito, envía un mensaje de WhatsApp con el texto <b>I allow callmebot to send me messages</b> al número <b>+34 644 17 94 64</b> para obtener tu API Key.
           </Typography>
-          <form id="whatsappForm" onSubmit={handleSave}>
+          <form id="whatsappForm" onSubmit={handleSaveWhatsapp}>
             <Grid container spacing={3}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Número de Teléfono"
-                  placeholder="********"
-                  type="password"
+                  placeholder="ej: +5214437969662"
+                  type="text"
                   size="small"
                   value={smtp.whatsappPhone}
                   onChange={(e) => setSmtp({ ...smtp, whatsappPhone: e.target.value })}
@@ -329,52 +378,91 @@ export const ConfiguracionPage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-                <Box sx={{ display: 'flex', gap: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="time"
+                  label="🌅 Hora de Envío (Mañana)"
+                  size="small"
+                  value={smtp.whatsappHourMorning || '09:00'}
+                  onChange={(e) => setSmtp({ ...smtp, whatsappHourMorning: e.target.value })}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ step: 300 }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="time"
+                  label="🌇 Hora de Envío (Tarde)"
+                  size="small"
+                  value={smtp.whatsappHourAfternoon || '18:00'}
+                  onChange={(e) => setSmtp({ ...smtp, whatsappHourAfternoon: e.target.value })}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ step: 300 }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sx={{ mt: 3, pt: 2, borderTop: '1px solid #f1f5f9' }}>
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: 'center', gap: 2, width: '100%' }}>
+                  <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      startIcon={testing ? <CircularProgress size={18} /> : <SendIcon />}
+                      onClick={handleTestWhatsapp}
+                      disabled={testing || savingWhatsapp || !smtp.whatsappPhone || !smtp.whatsappApiKey}
+                      sx={{ borderRadius: '8px', textTransform: 'none', px: 2, whiteSpace: 'nowrap', borderColor: '#25D366', color: '#25D366', '&:hover': { borderColor: '#128C7E', color: '#128C7E', backgroundColor: 'rgba(37, 211, 102, 0.04)' } }}
+                    >
+                      {testing ? 'Verificando...' : 'Probar WhatsApp'}
+                    </Button>
+                    <Button
+                      variant="contained"
+                      startIcon={testing ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
+                      onClick={handleTestWhatsappAlert}
+                      disabled={testing || savingWhatsapp || !smtp.whatsappPhone || !smtp.whatsappApiKey}
+                      sx={{ borderRadius: '8px', textTransform: 'none', px: 2, whiteSpace: 'nowrap', backgroundColor: '#ea580c', '&:hover': { backgroundColor: '#c2410c' } }}
+                    >
+                      Probar Alertas
+                    </Button>
+                    <Button
+                      variant="text"
+                      color="error"
+                      onClick={async () => {
+                        const newData = { ...smtp, whatsappPhone: '', whatsappApiKey: '' };
+                        setSmtp(newData);
+                        await configService.saveSmtp({ ...newData, port: Number(newData.port) });
+                        showNotification('Configuración de WhatsApp eliminada.', 'info');
+                      }}
+                      sx={{ borderRadius: '8px', textTransform: 'none', whiteSpace: 'nowrap' }}
+                    >
+                      Borrar WhatsApp
+                    </Button>
+                  </Box>
+
                   <Button
-                    variant="outlined"
-                    color="secondary"
-                    startIcon={testing ? <CircularProgress size={18} /> : <SendIcon />}
-                    onClick={handleTestWhatsapp}
-                    disabled={testing || saving || !smtp.whatsappPhone || !smtp.whatsappApiKey}
-                    sx={{ borderRadius: '8px', textTransform: 'none', px: 3, borderColor: '#25D366', color: '#25D366', '&:hover': { borderColor: '#128C7E', color: '#128C7E', backgroundColor: 'rgba(37, 211, 102, 0.04)' } }}
-                  >
-                    {testing ? 'Verificando...' : 'Probar WhatsApp'}
-                  </Button>
-                  <Button
-                    variant="text"
-                    color="error"
-                    onClick={async () => {
-                      const newData = { ...smtp, whatsappPhone: '', whatsappApiKey: '' };
-                      setSmtp(newData);
-                      await configService.saveSmtp({ ...newData, port: Number(newData.port) });
-                      showNotification('Configuración de WhatsApp eliminada.', 'info');
+                    type="submit"
+                    variant="contained"
+                    startIcon={savingWhatsapp ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
+                    disabled={savingWhatsapp || testing}
+                    onClick={() => handleSaveWhatsapp()}
+                    sx={{
+                      borderRadius: '8px',
+                      textTransform: 'none',
+                      px: 3.5,
+                      py: 1,
+                      whiteSpace: 'nowrap',
+                      minWidth: 'fit-content',
+                      backgroundColor: 'var(--color-primary)',
+                      '&:hover': {
+                        backgroundColor: 'var(--color-secondary)',
+                      }
                     }}
-                    sx={{ borderRadius: '8px', textTransform: 'none' }}
                   >
-                    Borrar WhatsApp
+                    {savingWhatsapp ? 'Guardando WhatsApp...' : 'Guardar Configuración WhatsApp'}
                   </Button>
                 </Box>
-
-                <Button
-                  type="submit"
-                  form="configForm"
-                  variant="contained"
-                  startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
-                  disabled={saving || testing}
-                  onClick={handleSave}
-                  sx={{
-                    borderRadius: '8px',
-                    textTransform: 'none',
-                    px: 4,
-                    backgroundColor: 'var(--color-primary)',
-                    '&:hover': {
-                      backgroundColor: 'var(--color-secondary)',
-                    }
-                  }}
-                >
-                  {saving ? 'Guardando...' : 'Guardar Todo'}
-                </Button>
               </Grid>
             </Grid>
           </form>
