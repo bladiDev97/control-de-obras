@@ -11,21 +11,28 @@ const dotenv = require('dotenv');
 dotenv.config();
 dotenv.config({ path: `.env.${process.env.NODE_ENV || 'development'}` });
 
-const endpoint = process.env.DYNAMO_ENDPOINT || process.env.DYNAMODB_ENDPOINT;
+let endpoint = process.env.DYNAMO_ENDPOINT || process.env.DYNAMODB_ENDPOINT;
+if (process.env.NODE_ENV === 'production') {
+  endpoint = undefined;
+  if (process.env.AWS_ACCESS_KEY_ID === 'local' || process.env.AWS_ACCESS_KEY_ID === 'fake') {
+    delete process.env.AWS_ACCESS_KEY_ID;
+  }
+  if (process.env.AWS_SECRET_ACCESS_KEY === 'local' || process.env.AWS_SECRET_ACCESS_KEY === 'fake') {
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+  }
+}
 const tableName = process.env.DYNAMO_TABLE_NAME || process.env.DYNAMODB_TABLE_NAME || 'ControlDeObras';
 const region = process.env.DYNAMO_REGION || process.env.AWS_REGION || 'us-east-1';
 
-const clientConfig = {
-  region,
-  credentials: {
-    accessKeyId: process.env.DYNAMO_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID || 'local',
-    secretAccessKey: process.env.DYNAMO_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY || 'local'
-  }
-};
+const clientConfig = { region };
 
-// Solo incluir endpoint si está definido (para DynamoDB Local)
+// Solo incluir endpoint y credenciales dummy para DynamoDB Local
 if (endpoint && endpoint.trim() !== '') {
   clientConfig.endpoint = endpoint;
+  clientConfig.credentials = {
+    accessKeyId: process.env.DYNAMO_ACCESS_KEY || 'local',
+    secretAccessKey: process.env.DYNAMO_SECRET_KEY || 'local'
+  };
 }
 
 const client = new DynamoDBClient(clientConfig);
@@ -60,7 +67,16 @@ async function ensureTableExists() {
         ],
         ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 }
       }));
-      console.log(`✅ Tabla "${tableName}" creada exitosamente.`);
+      console.log(`⏳ Esperando a que la tabla "${tableName}" esté en estado ACTIVE...`);
+      let active = false;
+      while (!active) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const describeRes = await client.send(new DescribeTableCommand({ TableName: tableName }));
+        if (describeRes.Table && describeRes.Table.TableStatus === 'ACTIVE') {
+          active = true;
+        }
+      }
+      console.log(`✅ Tabla "${tableName}" creada y activa exitosamente.`);
     } else {
       throw err;
     }

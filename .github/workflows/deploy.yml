@@ -1,0 +1,112 @@
+name: 🚀 Despliegue en AWS (Control de Obras)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-backend:
+    name: ⚡ Backend & DynamoDB (AWS Lambda + API Gateway)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: 📦 Instalar Dependencias del Backend
+        run: |
+          cd backend
+          npm ci
+
+      - name: 🏗️ Compilar Backend NestJS
+        run: |
+          cd backend
+          npm run build
+
+      - name: ⚡ Desplegar a AWS Lambda (Serverless Framework)
+        id: serverless
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'produccion_jwt_secret_key' }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT || '587' }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: |
+          cd backend
+          DEPLOY_OUTPUT=$(npx serverless@3 deploy --stage prod)
+          echo "$DEPLOY_OUTPUT"
+          
+          # Extraer API Gateway URL
+          API_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[^ ]*\.amazonaws\.com[^ ]*' | head -n 1)
+          echo "API_URL=$API_URL" >> $GITHUB_OUTPUT
+
+      - name: 🗄️ Poblar Base de Datos AWS DynamoDB Cloud
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          DYNAMO_TABLE_NAME: ControlDeObras
+          NODE_ENV: production
+        run: |
+          cd backend
+          npm run seed
+
+    outputs:
+      api_url: ${{ steps.serverless.outputs.api_url }}
+
+  deploy-frontend:
+    name: 🎨 Frontend React SPA (Build & Deploy)
+    needs: deploy-backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 📦 Instalar Dependencias del Frontend
+        run: |
+          cd frontend
+          npm ci
+
+      - name: 🏗️ Compilar Frontend React SPA
+        env:
+          VITE_API_URL: ${{ needs.deploy-backend.outputs.api_url || secrets.VITE_API_URL }}
+        run: |
+          cd frontend
+          echo "Compilando Frontend apuntando a VITE_API_URL=$VITE_API_URL"
+          npm run build
+
+      - name: 📤 Guardar Artefacto del Frontend (frontend/dist)
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
+      - name: 🌐 Desplegar Frontend en AWS S3 Website
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET_NAME="control-de-obras-frontend-$ACCOUNT_ID"
+          aws s3 sync frontend/dist/ "s3://$BUCKET_NAME/"
