@@ -11,17 +11,18 @@ export class WhatsappService {
 
   public async sendObraVencidaNotification(obra: ObraEntity, diasParaVencerse: number): Promise<void> {
     try {
-      const config = await this.configService.getSmtp('bladi.PigeonSave@gmail.com');
+      const config = await this.configService.getRawSmtp('bladi.PigeonSave@gmail.com');
       
       if (!config || !config.whatsappPhone || !config.whatsappApiKey) {
         this.logger.warn('No WhatsApp configuration found (whatsappPhone or whatsappApiKey missing).');
         return;
       }
 
-      const mensaje = `⚠️ *ALERTA DE OBRA VENCIDA* ⚠️\n\nLa obra con AT *${obra.at || 'N/A'}* y número de obra *${obra.obra || 'N/A'}* tiene *0* días para vencerse.\n\nPor favor verifica que la obra esté terminada y ciérrala en el sistema.\n\n- Sistema de Control de Obras CFE`;
+      const mensaje = `⚠️ *ALERTA DE OBRA POR VENCER* ⚠️\n\nLa obra con AT *${obra.at || 'N/A'}* y número de obra *${obra.obra || 'N/A'}* tiene *${diasParaVencerse}* ${diasParaVencerse === 1 ? 'día' : 'días'} para vencerse.\n\nPor favor verifica el avance de la obra y asegúrate de registrar su término en el sistema.\n\n- Sistema de Control de Obras CFE`;
       
+      const cleanPhone = config.whatsappPhone.replace(/[^0-9]/g, '');
       const text = encodeURIComponent(mensaje);
-      const url = `https://api.callmebot.com/whatsapp.php?phone=${config.whatsappPhone}&text=${text}&apikey=${config.whatsappApiKey}`;
+      const url = `https://api.callmebot.com/whatsapp.php?phone=${cleanPhone}&text=${text}&apikey=${config.whatsappApiKey}`;
       
       const response = await axios.get(url);
       

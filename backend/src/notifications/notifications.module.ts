@@ -13,5 +13,9 @@ import { ObrasModule } from '../obras/obras.module';
     WhatsappService,
     ObrasVencidasCron,
   ],
+  exports: [
+    WhatsappService,
+    ObrasVencidasCron,
+  ],
 })
 export class NotificationsModule {}
