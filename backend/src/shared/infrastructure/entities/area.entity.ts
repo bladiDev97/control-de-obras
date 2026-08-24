@@ -17,5 +17,8 @@ import { GenericEntity } from './generic.entity';
 })
 export class AreaEntity extends GenericEntity {
   @Attribute()
-  nombreArea: string;
+  area: string;
+
+  @Attribute()
+  nombreArea?: string;
 }

@@ -90,15 +90,35 @@ export default function ExcelImportPage() {
         // Recalculate range to bypass corrupted Excel dimension metadata
         recalculateSheetRange(ws);
 
-        // Skip decorative header rows: SIAD PLUS headers start at row 4 (index 3), SENASOL headers start at row 2 (index 1)
-        const rangeOption = type === 'siad-plus' ? { range: 3 } : { range: 1 };
-        const data = XLSX.utils.sheet_to_json(ws, rangeOption);
+        // Try candidate range offsets to find headers dynamically
+        const candidates = type === 'siad-plus' ? [3, 2, 1, 0] : [1, 0, 2, 3];
+        let bestData: any[] = [];
+
+        for (const rangeOffset of candidates) {
+          const rawData = XLSX.utils.sheet_to_json(ws, { range: rangeOffset });
+          if (rawData && rawData.length > 0) {
+            const firstRowKeys = Object.keys(rawData[0] || {}).map(k => k.toLowerCase().trim());
+            // Check if headers contain key expected columns
+            if (firstRowKeys.some(k => k.includes('solicitud') || k.includes('obra') || k.includes('po') || k.includes('tipo') || k.includes('pago') || k.includes('latitud'))) {
+              bestData = rawData;
+              break;
+            }
+          }
+        }
+
+        if (bestData.length === 0) {
+          bestData = XLSX.utils.sheet_to_json(ws, type === 'siad-plus' ? { range: 3 } : { range: 1 });
+        }
 
         if (type === 'siad-plus') {
-          // Filter to only include rows where Obra starts with E or A (case-insensitive column search)
-          const filteredData = data.filter((row: any) => {
-            const obraKey = Object.keys(row || {}).find(k => k.toLowerCase().trim() === 'obra');
-            const obraVal = String(obraKey ? row[obraKey] : '').toUpperCase().trim();
+          // Filter to strictly include ONLY rows where the "Obra" column starts with "E" or "A"
+          const filteredData = bestData.filter((row: any) => {
+            const obraKey = Object.keys(row || {}).find(k => {
+              const lk = k.toLowerCase().trim();
+              return lk === 'obra' || lk.startsWith('obra');
+            });
+            if (!obraKey) return false;
+            const obraVal = String(row[obraKey] || '').trim().toUpperCase();
             return obraVal.startsWith('E') || obraVal.startsWith('A');
           });
 
@@ -108,9 +128,9 @@ export default function ExcelImportPage() {
           setPreview({ type: 'SIAD PLUS', rows: filteredData, fileName: file.name });
         } else {
           setFileNameSenasol(file.name);
-          setRowsSenasol(data);
+          setRowsSenasol(bestData);
           setResultSenasol(null);
-          setPreview({ type: 'SENASOL', rows: data, fileName: file.name });
+          setPreview({ type: 'SENASOL', rows: bestData, fileName: file.name });
         }
       } catch (err) {
         console.error('Error al procesar el archivo Excel:', err);

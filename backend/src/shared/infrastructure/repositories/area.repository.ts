@@ -28,6 +28,7 @@ export class AreaRepository extends TypeDORMRepository<AreaEntity> {
     const entity = new AreaEntity();
     entity.pk = pk;
     entity.sk = `area#${nombreArea}`;
+    entity.area = nombreArea;
     entity.nombreArea = nombreArea;
     entity.isDelete = false;
     return await super.createItem(entity);

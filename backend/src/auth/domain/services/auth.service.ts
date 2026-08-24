@@ -1,5 +1,5 @@
 // Dependencies
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { Injectable, Logger } from '@nestjs/common';
 import { ThrowError } from 'src/shared/utils/throwservererror';
 

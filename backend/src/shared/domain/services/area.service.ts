@@ -30,7 +30,11 @@ export class AreaService {
       list = await this.areaRepository.areaListAll(pk);
     }
     
-    return list;
+    return list.map(item => {
+      item.area = item.area || item.nombreArea || '';
+      item.nombreArea = item.nombreArea || item.area || '';
+      return item;
+    });
   }
 
   public async create(pk: string, nombreArea: string): Promise<AreaEntity> {

@@ -42,6 +42,45 @@ export const PersonalTab: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const DEFAULT_ROLES = ['Administrador', 'Auxiliar Administrativo', 'Supervisor de Obra'];
+  const [customRoles, setCustomRoles] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('custom_roles');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [addingRoleModal, setAddingRoleModal] = useState(false);
+  const [newRoleInput, setNewRoleInput] = useState('');
+
+  const allRoles = Array.from(
+    new Set([
+      ...DEFAULT_ROLES,
+      ...customRoles,
+      ...personalList.map((p) => p.cargo).filter(Boolean),
+    ])
+  );
+
+  const handleAddRoleConfirm = () => {
+    const trimmed = newRoleInput.trim();
+    if (trimmed && !allRoles.includes(trimmed)) {
+      const updated = [...customRoles, trimmed];
+      setCustomRoles(updated);
+      try {
+        localStorage.setItem('custom_roles', JSON.stringify(updated));
+      } catch (err) {
+        console.error(err);
+      }
+      setForm((prev) => ({ ...prev, cargo: trimmed }));
+    } else if (trimmed) {
+      setForm((prev) => ({ ...prev, cargo: trimmed }));
+    }
+    setNewRoleInput('');
+    setAddingRoleModal(false);
+  };
+
   const loadPersonal = async () => {
     setLoading(true);
     try {
@@ -293,14 +332,41 @@ export const PersonalTab: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <TextField
-                  label="Cargo o Rol"
+                  select
+                  label="Cargo o Rol *"
                   fullWidth
-                  value={form.cargo}
-                  onChange={(e) => setForm({ ...form, cargo: e.target.value })}
+                  value={form.cargo || ''}
+                  onChange={(e) => {
+                    if (e.target.value === 'ADD_NEW_ROLE') {
+                      setAddingRoleModal(true);
+                    } else {
+                      setForm({ ...form, cargo: e.target.value });
+                    }
+                  }}
                   error={!!errors.cargo}
                   helperText={errors.cargo}
                   required
-                />
+                >
+                  <MenuItem value="">
+                    <em>Seleccione un cargo o rol</em>
+                  </MenuItem>
+                  {allRoles.map((r) => (
+                    <MenuItem key={r} value={r}>
+                      {r}
+                    </MenuItem>
+                  ))}
+                  <MenuItem
+                    value="ADD_NEW_ROLE"
+                    style={{
+                      color: '#008E60',
+                      fontWeight: 'bold',
+                      borderTop: '1px solid #e2e8f0',
+                      marginTop: '4px',
+                    }}
+                  >
+                    + AGREGAR ROL
+                  </MenuItem>
+                </TextField>
               </Grid>
               <Grid item xs={12}>
                 <TextField
@@ -364,6 +430,48 @@ export const PersonalTab: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Dialog for adding a new Role */}
+      <Dialog
+        open={addingRoleModal}
+        onClose={() => setAddingRoleModal(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>
+          Agregar Nuevo Rol
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            label="Nombre del Rol / Cargo"
+            fullWidth
+            value={newRoleInput}
+            onChange={(e) => setNewRoleInput(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAddingRoleModal(false)} sx={{ color: 'var(--color-secondary)' }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleAddRoleConfirm}
+            disabled={!newRoleInput.trim()}
+            sx={{
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 'bold',
+              backgroundColor: 'var(--color-primary)',
+              '&:hover': { backgroundColor: 'var(--color-primary-hover)' },
+            }}
+          >
+            Agregar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
-}
+};

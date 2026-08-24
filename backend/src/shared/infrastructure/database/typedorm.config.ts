@@ -25,33 +25,29 @@ dotenv.config({
   path: `.env.${process.env.NODE_ENV || 'development'}`,
 });
 
-const endpoint = process.env.DYNAMO_ENDPOINT || process.env.DYNAMODB_ENDPOINT;
-if (!endpoint || endpoint.trim() === '') {
-  throw new Error(
-    '❌ Environment variable "DYNAMO_ENDPOINT" or "DYNAMODB_ENDPOINT" is required but was not set.',
-  );
-}
+let endpoint = process.env.DYNAMO_ENDPOINT || process.env.DYNAMODB_ENDPOINT;
 
-const tableName = process.env.DYNAMO_TABLE_NAME || process.env.DYNAMODB_TABLE_NAME;
-if (!tableName || tableName.trim() === '') {
-  throw new Error(
-    '❌ Environment variable "DYNAMO_TABLE_NAME" or "DYNAMODB_TABLE_NAME" is required but was not set.',
-  );
+// Si estamos en producción o AWS Lambda, ignorar endpoint de localhost
+if (process.env.NODE_ENV === 'production' || process.env.AWS_EXECUTION_ENV) {
+  if (endpoint && (endpoint.includes('localhost') || endpoint.includes('127.0.0.1'))) {
+    endpoint = undefined;
+  }
 }
-
+const tableName = process.env.DYNAMO_TABLE_NAME || process.env.DYNAMODB_TABLE_NAME || 'ControlDeObras';
 const region = process.env.DYNAMO_REGION || process.env.AWS_REGION || 'us-east-1';
-const accessKeyId = process.env.DYNAMO_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID || 'fake';
-const secretAccessKey = process.env.DYNAMO_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY || 'fake';
+
+const clientConfig: any = { region };
+// Solo incluir endpoint y credenciales dummy para DynamoDB Local
+if (endpoint && endpoint.trim() !== '') {
+  clientConfig.endpoint = endpoint;
+  clientConfig.credentials = {
+    accessKeyId: process.env.DYNAMO_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID || 'local',
+    secretAccessKey: process.env.DYNAMO_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY || 'local',
+  };
+}
 
 // Cliente base para SDK v3
-const baseClient = new DynamoDBClient({
-  region,
-  endpoint,
-  credentials: {
-    accessKeyId,
-    secretAccessKey,
-  },
-});
+const baseClient = new DynamoDBClient(clientConfig);
 
 // Cliente de documentos para TypeDORM (forma oficial y correcta)
 const documentClient = new DocumentClientV3(

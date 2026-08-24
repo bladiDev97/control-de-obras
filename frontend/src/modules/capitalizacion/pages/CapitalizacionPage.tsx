@@ -59,8 +59,40 @@ export default function CapitalizacionPage() {
         </span>
       ),
     },
-    { key: 'at', label: 'AT' },
-    { key: 'obra', label: 'Obra' },
+    {
+      key: 'at',
+      label: 'AT',
+      render: (row) => {
+        const dias = row.diasSinCapitalizar ?? 0;
+        let color = '#2e7d32';
+        let bg = '#e8f5e9';
+        if (dias >= 17) { color = '#c62828'; bg = '#ffebee'; }
+        else if (dias >= 11) { color = '#ef6c00'; bg = '#fff3e0'; }
+
+        return (
+          <span style={{ backgroundColor: bg, color, padding: '3px 8px', borderRadius: '8px', fontWeight: '800' }}>
+            {row.at || '-'}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'obra',
+      label: 'Obra',
+      render: (row) => {
+        const dias = row.diasSinCapitalizar ?? 0;
+        let color = '#2e7d32';
+        let bg = '#e8f5e9';
+        if (dias >= 17) { color = '#c62828'; bg = '#ffebee'; }
+        else if (dias >= 11) { color = '#ef6c00'; bg = '#fff3e0'; }
+
+        return (
+          <span style={{ backgroundColor: bg, color, padding: '3px 8px', borderRadius: '8px', fontWeight: '800' }}>
+            {row.obra || '-'}
+          </span>
+        );
+      }
+    },
     { key: 'anio', label: 'Año' },
     { key: 'activo', label: 'Activo' },
     { key: 'orden', label: 'Orden' },

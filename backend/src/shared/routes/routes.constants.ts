@@ -43,6 +43,7 @@ export const Routes = {
     SaveSmtp: 'smtp',
     TestSmtp: 'smtp/test',
     TestWhatsapp: 'whatsapp/test',
+    TestWhatsappAlert: 'whatsapp/test-alert',
   },
 
   Areas: {
