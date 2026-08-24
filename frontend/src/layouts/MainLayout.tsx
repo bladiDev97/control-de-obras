@@ -131,9 +131,20 @@ export default function MainLayout() {
           <Outlet />
         </div>
         <footer className="app-footer">
-          <div style={{ maxWidth: '1440px', width: '100%', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>© {new Date().getFullYear()} Control de Obras. Todos los derechos reservados.</div>
-            <div>Versión 1.0.0 | CFE Distribución</div>
+          <div style={{ maxWidth: '1440px', width: '100%', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚡ CONTROL DE OBRAS</span>
+              <span style={{ opacity: 0.5 }}>|</span>
+              <span style={{ fontWeight: 600, letterSpacing: '0.8px', color: '#ffffff' }}>
+                DEVELOPED BY MARCOS BLADIMIR ROMERO PÉREZ
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '3px 10px', borderRadius: '12px', fontSize: '0.70rem', fontWeight: 700 }}>
+                v2.4.0
+              </span>
+              <span>CFE DISTRIBUCIÓN</span>
+            </div>
           </div>
         </footer>
       </main>

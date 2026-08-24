@@ -109,19 +109,19 @@ body {
 }
 
 .card {
-  background: var(--color-surface);
-  border-radius: var(--radius-base);
-  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
   padding: calc(var(--spacing-base) * 4);
-  box-shadow: var(--shadow-premium);
+  box-shadow: 0 10px 30px -10px rgba(0, 142, 96, 0.08), 0 1px 4px 0 rgba(0, 0, 0, 0.04) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
 }
 
 .card:hover {
-  transform: translateY(-4px) scale(1.005);
-  box-shadow: 0 20px 40px -15px rgba(0, 142, 96, 0.12);
-  border-color: #cbd5e1;
+  box-shadow: 0 20px 40px -12px rgba(0, 142, 96, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.9) !important;
 }
 
 .toolbar {
@@ -132,14 +132,31 @@ body {
   align-items: center;
 }
 
-/* Material UI Class Overrides */
+/* Material UI Class Overrides & iOS Glassmorphism */
+.MuiPaper-elevation {
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-radius: 18px !important;
+}
 
-/* Header (AppBar) */
+.MuiDialog-paper {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(25px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12) !important;
+  border-radius: 20px !important;
+}
+
+/* Header (AppBar) - Crisp edge-to-edge iOS header with no rounded corners */
 .MuiAppBar-root {
-  background: linear-gradient(135deg, var(--verde-cfe) 0%, #007650 100%) !important;
+  background: rgba(0, 142, 96, 0.92) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
   color: var(--texto-blanco) !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 142, 96, 0.2) !important;
-  border-bottom: none !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 142, 96, 0.15) !important;
+  border-radius: 0px !important;
 }
 
 .MuiAppBar-root .MuiTypography-root {
@@ -297,12 +314,19 @@ body {
   transition: all 0.2s ease !important;
 }
 
-/* Row colors based on status */
 .MuiTableRow-root.status-terminada {
   background-color: #bae6fd !important; /* Striking light blue for finished in field */
 }
 .MuiTableRow-root.status-terminada:hover {
   background-color: #7dd3fc !important; /* Slightly darker blue on hover */
+}
+
+/* Obras con fecha de término pero sin fecha en campo (Para Conexión) */
+.MuiTableRow-root.status-conexion-yellow {
+  background-color: #fef08a !important; /* Soft vibrant yellow for "Para Conexión" */
+}
+.MuiTableRow-root.status-conexion-yellow:hover {
+  background-color: #fde047 !important; /* Slightly darker yellow on hover */
 }
 
 .MuiTableRow-root.status-capitalizada {

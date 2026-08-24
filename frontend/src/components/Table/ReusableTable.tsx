@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Table,
   TableHead,
@@ -22,6 +22,7 @@ export interface Column<T> {
   label: string;
   render?: (row: T) => React.ReactNode;
   align?: 'inherit' | 'left' | 'center' | 'right' | 'justify';
+  width?: string;
 }
 
 export interface ReusableTableProps<T> {
@@ -30,6 +31,7 @@ export interface ReusableTableProps<T> {
   searchable?: boolean;
   defaultOrderBy?: keyof T;
   defaultOrderDir?: 'asc' | 'desc';
+  customSort?: (a: T, b: T) => number;
 }
 
 export default function ReusableTable<T extends Record<string, any>>({
@@ -38,10 +40,24 @@ export default function ReusableTable<T extends Record<string, any>>({
   searchable = true,
   defaultOrderBy,
   defaultOrderDir,
+  customSort,
 }: ReusableTableProps<T>) {
   const [search, setSearch] = useState('');
   const [orderBy, setOrderBy] = useState<keyof T | null>(defaultOrderBy || null);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc'>(defaultOrderDir || 'asc');
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll table container to bottom on load so smaller-day items are displayed first
+  useEffect(() => {
+    if (tableContainerRef.current && rows.length > 0) {
+      const timer = setTimeout(() => {
+        if (tableContainerRef.current) {
+          tableContainerRef.current.scrollTop = tableContainerRef.current.scrollHeight;
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [rows.length]);
 
   // Check if rows have a status column to dynamically render CFE status filter
   const hasStatusColumn = rows.length > 0 && 'estatus' in rows[0];
@@ -61,7 +77,7 @@ export default function ReusableTable<T extends Record<string, any>>({
     );
   });
 
-  // Apply sorting
+  // Apply sorting (use orderBy if user clicked a header, or customSort if provided)
   const sorted = orderBy
     ? [...filtered].sort((a, b) => {
         const av = a[orderBy];
@@ -70,6 +86,8 @@ export default function ReusableTable<T extends Record<string, any>>({
         if (av > bv) return orderDir === 'asc' ? 1 : -1;
         return 0;
       })
+    : customSort
+    ? [...filtered].sort(customSort)
     : filtered;
 
   const handleSort = (key: keyof T) => {
@@ -82,14 +100,15 @@ export default function ReusableTable<T extends Record<string, any>>({
   };
 
   return (
-    <Paper className="card" style={{ padding: '20px', overflow: 'hidden' }}>
+    <Paper className="card" sx={{ p: { xs: 1.5, sm: 2.5 }, width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
       {/* Toolbar: Search input + Status Dropdown Filter */}
       {(searchable || hasStatusColumn) && (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '16px', mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '16px', mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
           {searchable && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '1 1 240px' }}>
               <TextField
                 size="small"
+                fullWidth
                 placeholder="Buscar registros..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -100,7 +119,7 @@ export default function ReusableTable<T extends Record<string, any>>({
                     </InputAdornment>
                   ),
                 }}
-                sx={{ width: 280 }}
+                sx={{ maxWidth: 320 }}
               />
             </Box>
           )}
@@ -133,41 +152,61 @@ export default function ReusableTable<T extends Record<string, any>>({
         </Box>
       )}
 
-      {/* Table Container - Fits all records with standard scrollbar */}
-      <TableContainer sx={{ maxHeight: 'calc(100vh - 240px)', overflowY: 'auto', overflowX: 'auto' }}>
-        <Table size="small" stickyHeader>
+      <TableContainer ref={tableContainerRef} sx={{ width: '100%', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', overflowX: 'hidden', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
-              {columns.map((col) => {
-                const alignment = col.align || 'center';
-                return (
-                  <TableCell key={String(col.key)} align={alignment}>
+              {columns.map((col) => (
+                  <TableCell
+                    key={String(col.key)}
+                    align="center"
+                    sx={{
+                      width: (col as any).width || 'auto',
+                      fontWeight: '800',
+                      fontSize: '0.78rem',
+                      letterSpacing: '0.2px',
+                      backgroundColor: '#f8fafc !important',
+                      color: '#1e293b',
+                      py: 1.1,
+                      px: 0.6,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      textAlign: 'center',
+                      borderBottom: '2px solid #cbd5e1',
+                    }}
+                  >
                     <TableSortLabel
                       active={orderBy === col.key}
                       direction={orderBy === col.key ? orderDir : 'asc'}
                       onClick={() => handleSort(col.key)}
-                      sx={alignment === 'center' ? { justifyContent: 'center' } : undefined}
+                      sx={{ width: '100%', justifyContent: 'center' }}
                     >
                       {col.label}
                     </TableSortLabel>
                   </TableCell>
-                );
-              })}
+                ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {sorted.map((row, idx) => {
                 let className = '';
-                const hasFechaTermino = row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '';
+                const hasFechaTerminoCampo = !!(row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '');
+                const hasFechaTerminoConstruccion = !!(
+                  (row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '') ||
+                  (row.fechaTermino && String(row.fechaTermino).trim() !== '')
+                );
 
                 if (row.estatus === 'CAPITALIZADA') {
-                  if (!hasFechaTermino) {
+                  if (!hasFechaTerminoCampo) {
                     className = 'status-anomaly-red';
                   } else {
                     className = 'status-capitalizada';
                   }
-                } else if (hasFechaTermino) {
+                } else if (hasFechaTerminoCampo) {
                   className = 'status-terminada';
+                } else if (hasFechaTerminoConstruccion && !hasFechaTerminoCampo) {
+                  className = 'status-conexion-yellow';
                 } else if (row.estatus === 'PENDIENTE') {
                   className = 'status-pendiente';
                 } else if (row.estatus === 'ASIGNADA') {
@@ -178,7 +217,19 @@ export default function ReusableTable<T extends Record<string, any>>({
                   {columns.map((col) => {
                     const alignment = col.align || 'center';
                     return (
-                      <TableCell key={String(col.key)} align={alignment}>
+                      <TableCell
+                        key={String(col.key)}
+                        align={alignment}
+                        sx={{
+                          width: (col as any).width || 'auto',
+                          py: 0.85,
+                          px: 0.6,
+                          fontSize: '0.80rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
                         {col.render ? col.render(row) : row[col.key]}
                       </TableCell>
                     );
