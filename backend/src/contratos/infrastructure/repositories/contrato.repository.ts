@@ -13,6 +13,7 @@ import { IEstimacion } from '../../domain/ientities/i-estimacion.interface';
 import { IGeneric } from 'src/shared/domain/ientities/i-generic.interface';
 import { IContratoRepository } from '../../domain/irepositories/i-contrato.repository.interface';
 import { CryptoService } from 'src/shared/utils/crypto';
+import { globalCache } from 'src/shared/utils/cache.util';
 
 @Injectable()
 export class ContratoRepository
@@ -26,12 +27,14 @@ export class ContratoRepository
   }
 
   public async contratoCreate(body: IContrato): Promise<ContratoEntity> {
+    globalCache.clear(`contrato_all_${body.pk}`);
     body.sk = `contrato#${body.numeroContrato}`;
     body.isDelete = false;
     return await super.createItem(body as ContratoEntity);
   }
 
   public async contratoUpdate(dto: IContrato): Promise<ContratoEntity> {
+    globalCache.clear(`contrato_all_${dto.pk}`);
     dto.sk = `contrato#${dto.numeroContrato}`;
     return await super.updateItem(dto as ContratoEntity);
   }
@@ -53,23 +56,31 @@ export class ContratoRepository
   }
 
   public async contratoDetail(keys: IGeneric): Promise<ContratoEntity> {
-    const detailKeys = { pk: keys.pk, sk: `contrato#${keys.sk}` };
+    const sk = keys.sk && keys.sk.startsWith('contrato#') ? keys.sk : `contrato#${keys.sk}`;
+    const detailKeys = { pk: keys.pk, sk };
     return await super.getItem(detailKeys);
   }
 
   public async contratoDelete(keys: IGeneric): Promise<ContratoEntity> {
-    const deleteKeys = { pk: keys.pk, sk: `contrato#${keys.sk}` };
+    const sk = keys.sk && keys.sk.startsWith('contrato#') ? keys.sk : `contrato#${keys.sk}`;
+    const deleteKeys = { pk: keys.pk, sk };
     return await super.delateItem(deleteKeys);
   }
 
   public async contratoListAll(pk: string): Promise<ContratoEntity[]> {
+    const cacheKey = `contrato_all_${pk}`;
+    const cached = globalCache.get<ContratoEntity[]>(cacheKey);
+    if (cached) return cached;
+
     const sk = `contrato#`;
     const keys: IGeneric = { pk, sk };
     const query: IQuery<ContratoEntity> = {
       limit: 1000,
     };
     const [items] = await super.itemsBySearchDTO<ContratoEntity>(keys, query);
-    return items.filter(item => !item.isDelete);
+    const result = (items || []).filter(item => item && !item.isDelete);
+    globalCache.set(cacheKey, result, 30000);
+    return result;
   }
 
   // --- Assignments ---

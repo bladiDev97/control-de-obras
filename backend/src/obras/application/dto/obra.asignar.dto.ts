@@ -118,4 +118,41 @@ export class ObrasAsignarDto {
   @IsString()
   @IsOptional()
   coordenadaY?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  diasObraAPORTACIONES?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  diasSinCapitalizar?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  oficioConsecutivo?: any;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  estatus?: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA';
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  solicitudPo?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  anio?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  fechaFinConstruccion?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  fechaTermino?: string;
 }

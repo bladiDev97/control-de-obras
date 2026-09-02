@@ -2,6 +2,7 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { EntityManager } from '@typedorm/core';
 import { ConfigEntity } from '../infrastructure/entities/config.entity';
+import { ConfigRepository } from '../infrastructure/repositories/config.repository';
 import { CryptoService } from '../utils/crypto';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -36,6 +37,7 @@ export class MailService {
   constructor(
     @Inject('ENTITY_MANAGER')
     private readonly entityManager: EntityManager,
+    private readonly configRepository: ConfigRepository,
   ) {
     this.initializeTransporter();
   }
@@ -60,22 +62,7 @@ export class MailService {
         },
       });
     } else {
-      this.logger.warn('SMTP credentials not configured in environment. Creating Ethereal test account...');
-      try {
-        const testAccount = await nodemailer.createTestAccount();
-        this.logger.log(`Created Ethereal test account: ${testAccount.user}`);
-        this.transporter = nodemailer.createTransport({
-          host: 'smtp.ethereal.email',
-          port: 587,
-          secure: false,
-          auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
-          },
-        });
-      } catch (err) {
-        this.logger.error('Failed to create Ethereal test account. Mail service will print to console logs only.', err);
-      }
+      this.logger.warn('SMTP credentials not configured in environment. Will load from database dynamically on first mail.');
     }
   }
 
@@ -85,33 +72,31 @@ export class MailService {
       host: config.host,
       port: config.port,
       secure: config.port === 465,
-      pool: true,
-      maxConnections: 3,
+      pool: false,
       auth: {
         user: config.user,
         pass: config.pass,
       },
-    });
+    } as any);
     this.customFromAddress = config.from || config.user;
   }
 
   private async loadFromDbIfFirstTime(pk: string) {
     if (this.hasLoadedCustom) return;
     try {
-      const encryptedPk = CryptoService.encryptEmail(pk);
-      const keys = { pk: encryptedPk, sk: 'config#smtp' };
-      const config = await this.entityManager.findOne(ConfigEntity, keys);
+      this.logger.log(`Loading SMTP configuration from database for pk: ${pk}...`);
+      const config = await this.configRepository.getSmtpConfig(pk);
       if (config && config.host && config.port && config.user && config.pass) {
-        const decryptedUser = decryptField(config.user);
-        const decryptedPass = decryptField(config.pass);
-        const decryptedFrom = decryptField(config.from);
+        this.logger.log(`Found database SMTP configuration for: ${config.user} (${config.host}:${config.port})`);
         this.setCustomTransporter({
           host: config.host,
           port: Number(config.port),
-          user: decryptedUser,
-          pass: decryptedPass,
-          from: decryptedFrom,
+          user: config.user,
+          pass: config.pass,
+          from: config.from,
         });
+      } else {
+        this.logger.warn(`No valid SMTP configuration found in database for pk: ${pk}`);
       }
     } catch (err) {
       this.logger.error('Failed to load database SMTP config on startup check', err);
@@ -143,7 +128,8 @@ export class MailService {
 
     // Backup locally for easy inspection
     try {
-      const uploadDir = path.resolve('uploads');
+      const os = require('os');
+      const uploadDir = path.join(os.tmpdir(), 'uploads');
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }

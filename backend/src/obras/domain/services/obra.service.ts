@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
+import axios from 'axios';
 
 //Interfaces
 import { IObra } from '../ientities/i-obra.interface';
@@ -15,6 +16,7 @@ import { PersonalRepository } from '../../../personal/infrastructure/repositorie
 //Services
 import { MailService } from 'src/shared/services/mail.service';
 import { PdfService } from 'src/shared/services/pdf.service';
+import { S3Service } from 'src/shared/services/s3.service';
 
 //DTOs
 import { ObrasCreateDto } from '../../application/dto/obra.create.dto';
@@ -30,6 +32,7 @@ export class ObraService {
     private readonly personalRepository: PersonalRepository,
     private readonly mailService: MailService,
     private readonly pdfService: PdfService,
+    private readonly s3Service: S3Service,
   ) {}
 
   /** List all Obras and calculate diasSinCapitalizar */
@@ -198,17 +201,27 @@ export class ObraService {
     planoPdfPath?: string,
   ): Promise<IObra> {
     const startTime = Date.now();
-    this.logger.log(`[PERF] Starting asignar flow for id: ${id}`);
+    const cleanId = decodeURIComponent(id);
+    this.logger.log(`[PERF] Starting asignar flow for id: ${cleanId}`);
 
-    const keys: IGeneric = { pk, sk: id };
-    const existing = await this.obraRepository.obraDetail(keys);
+    const keys: IGeneric = { pk, sk: cleanId };
+    let existing: IObra | null = null;
+    try {
+      existing = await this.obraRepository.obraDetail(keys);
+    } catch (err) {
+      this.logger.warn(`Obra detail lookup for ${cleanId} did not find existing entity:`, err);
+      existing = null;
+    }
 
+    const fullSk = cleanId.startsWith('obra#') ? cleanId : `obra#${cleanId}`;
     const updatedData: IObra = {
-      ...existing,
+      solicitudPo: cleanId,
+      anio: new Date().getFullYear().toString(),
+      ...(existing || {}),
       ...data,
       pk,
-      sk: id,
-    };
+      sk: fullSk,
+    } as IObra;
 
     if (planoPdfPath) {
       updatedData.planoPdf = planoPdfPath;
@@ -216,26 +229,64 @@ export class ObraService {
 
     updatedData.estatus = this.determineEstatus(updatedData);
 
-    // 1. Try to send the assignment notification email first (Synchronously)
-    const emailStart = Date.now();
-    await this.sendAssignmentNotificationEmail(pk, updatedData);
-    this.logger.log(`[PERF] sendAssignmentNotificationEmail took ${Date.now() - emailStart}ms`);
+    // 1. Fast validation of contract & emails before updating DB
+    if (updatedData.contrato) {
+      const cleanContratoKey = updatedData.contrato.replace(/^contrato#/, '');
+      let contrato: any = null;
+      try {
+        contrato = await this.contratoRepository.contratoDetail({ pk, sk: cleanContratoKey });
+      } catch (err) {
+        this.logger.warn(`Contrato detail lookup for ${cleanContratoKey} did not find existing entity:`, err);
+        contrato = null;
+      }
 
-    // 2. Save changes to DynamoDB database ONLY if the email was sent successfully!
+      if (!contrato) {
+        throw new BadRequestException(
+          `El contrato "${updatedData.contrato}" no existe en la base de datos. Por favor verifique el número de contrato o regístrelo en la sección 'Contratos (Finanzas)'.`
+        );
+      }
+      if (!contrato.correos || contrato.correos.length === 0) {
+        throw new BadRequestException(
+          `El contratista asignado al contrato "${updatedData.contrato}" no tiene correos electrónicos registrados para enviar notificaciones.`
+        );
+      }
+    }
+
+    // 2. Save changes to DynamoDB database immediately
     const dbStart = Date.now();
     const updated = await this.obraRepository.obraUpdate(updatedData);
-    this.logger.log(`[PERF] obraUpdate took ${Date.now() - dbStart}ms`);
+    this.logger.log(`[PERF] obraUpdate completed in ${Date.now() - dbStart}ms`);
 
-    this.logger.log(`[PERF] Total asignar flow completed in ${Date.now() - startTime}ms`);
+    // 3. Dispatch email notification before ending Lambda execution to guarantee delivery
+    try {
+      await this.sendAssignmentNotificationEmail(pk, updatedData);
+    } catch (err: any) {
+      this.logger.error(`[EMAIL DISPATCH ERROR] Error sending email for obra ${updatedData.sk}:`, err);
+    }
+
+    this.logger.log(`[PERF] Total asignar flow HTTP response ready in ${Date.now() - startTime}ms`);
     return {
       ...updated,
       id,
     };
   }
 
-  private async sendAssignmentNotificationEmail(pk: string, obra: IObra): Promise<void> {
+  private async sendAssignmentNotificationEmail(pk: string, obraInput: IObra): Promise<void> {
     try {
-      this.logger.log(`Triggering email assignment notification for obra: ${obra.sk}`);
+      this.logger.log(`Triggering email assignment notification for obra: ${obraInput.sk}`);
+
+      // Ensure we have full Obra entity from DB
+      let obra = obraInput;
+      if (!obra.contrato || !obra.at || !obra.obra) {
+        try {
+          const freshObra = await this.obraRepository.obraDetail({ pk, sk: obraInput.sk });
+          if (freshObra) {
+            obra = { ...freshObra, ...obraInput };
+          }
+        } catch (e) {
+          this.logger.warn(`Could not refresh obra detail for ${obraInput.sk}:`, e);
+        }
+      }
 
       // 1. Fetch Contract details to resolve Contractor emails
       let contractorEmails: string[] = [];
@@ -244,28 +295,29 @@ export class ObraService {
       let superintendenteName = 'N/A';
 
       if (obra.contrato) {
+        const cleanContratoKey = obra.contrato.replace(/^contrato#/, '');
         try {
-          const contrato = await this.contratoRepository.contratoDetail({ pk, sk: obra.contrato });
+          const contrato = await this.contratoRepository.contratoDetail({ pk, sk: cleanContratoKey });
           if (contrato) {
-            contractorEmails = contrato.correos || [];
+            const rawCorreos: any = contrato.correos || [];
+            contractorEmails = Array.isArray(rawCorreos)
+              ? rawCorreos
+                  .map((item: any) => (typeof item === 'string' ? item : item?.S || item?.s || String(item)))
+                  .filter((e) => Boolean(e) && e !== '[object Object]')
+              : [String(rawCorreos)];
             contractorName = contrato.contratista || 'N/A';
             contractorAddress = contrato.direccion || 'N/A';
             superintendenteName = contrato.residenteObra || 'N/A';
-          } else {
-            throw new BadRequestException(`El contrato ${obra.contrato} no existe en la base de datos. Regístrelo en la sección de 'Contratos (Finanzas)' primero.`);
           }
         } catch (err: any) {
-          this.logger.error(`Error loading contract: ${obra.contrato}`, err);
-          if (err instanceof BadRequestException) {
-            throw err;
-          }
-          throw new BadRequestException(`El contrato ${obra.contrato} no existe en la base de datos. Regístrelo en la sección de 'Contratos (Finanzas)' primero.`);
+          this.logger.error(`Error loading contract ${obra.contrato} for email notification:`, err);
         }
       }
 
-      // If no contractor emails registered, throw error
+      // If no contractor emails registered, log warning and exit gracefully
       if (contractorEmails.length === 0) {
-        throw new BadRequestException(`El contratista del contrato ${obra.contrato || 'N/A'} no tiene correos electrónicos registrados.`);
+        this.logger.warn(`Skipping assignment email notification: Obra ${obra.sk} with contract ${obra.contrato || 'N/A'} has no contractor emails registered.`);
+        return;
       }
 
       // 2. Fetch Personnel to find Supervisor de Obra and Auxiliar Administrativo
@@ -517,14 +569,33 @@ export class ObraService {
 
       // If planoPdf exists, resolve and attach it
       if (obra.planoPdf) {
-        const absolutePlanoPath = path.resolve(obra.planoPdf);
-        if (fs.existsSync(absolutePlanoPath)) {
-          attachments.push({
-            filename: `Plano_Proyecto_AT_${obra.at}.pdf`,
-            path: absolutePlanoPath
-          });
+        if (obra.planoPdf.startsWith('http://') || obra.planoPdf.startsWith('https://')) {
+          try {
+            let buffer: Buffer;
+            if (obra.planoPdf.includes('amazonaws.com')) {
+              buffer = await this.s3Service.getFileBuffer(obra.planoPdf);
+            } else {
+              const dlRes = await axios.get(obra.planoPdf, { responseType: 'arraybuffer' });
+              buffer = Buffer.from(dlRes.data);
+            }
+            attachments.push({
+              filename: `Plano_Proyecto_AT_${obra.at}.pdf`,
+              content: buffer,
+            });
+            this.logger.log(`Successfully attached Plano PDF from URL: ${obra.planoPdf}`);
+          } catch (dlErr: any) {
+            this.logger.warn(`Failed to download Plano PDF from URL ${obra.planoPdf}: ${dlErr.message}`);
+          }
         } else {
-          this.logger.warn(`Plano PDF path specified but file not found on disk: ${absolutePlanoPath}`);
+          const absolutePlanoPath = path.resolve(obra.planoPdf);
+          if (fs.existsSync(absolutePlanoPath)) {
+            attachments.push({
+              filename: `Plano_Proyecto_AT_${obra.at}.pdf`,
+              path: absolutePlanoPath,
+            });
+          } else {
+            this.logger.warn(`Plano PDF path specified but file not found on disk: ${absolutePlanoPath}`);
+          }
         }
       }
 

@@ -17,6 +17,8 @@ import { IPersonal } from '../../domain/ientities/i-personal.interface';
 import { IGeneric } from 'src/shared/domain/ientities/i-generic.interface';
 import { IPersonalRepository } from '../../domain/irepositories/i-personal.repository.interface';
 
+import { globalCache } from 'src/shared/utils/cache.util';
+
 @Injectable()
 export class PersonalRepository
   extends TypeDORMRepository<PersonalEntity>
@@ -29,12 +31,14 @@ export class PersonalRepository
   }
 
   public async personalCreate(body: IPersonal): Promise<PersonalEntity> {
+    globalCache.clear(`personal_all_${body.pk}`);
     body.sk = `personal#${body.rpe}`;
     body.isDelete = false;
     return await super.createItem(body as PersonalEntity);
   }
 
   public async personalUpdate(dto: IPersonal): Promise<PersonalEntity> {
+    globalCache.clear(`personal_all_${dto.pk}`);
     dto.sk = `personal#${dto.rpe}`;
     return await super.updateItem(dto as PersonalEntity);
   }
@@ -61,17 +65,24 @@ export class PersonalRepository
   }
 
   public async personalDelete(keys: IGeneric): Promise<PersonalEntity> {
+    globalCache.clear(`personal_all_${keys.pk}`);
     const deleteKeys = { pk: keys.pk, sk: `personal#${keys.sk}` };
     return await super.delateItem(deleteKeys);
   }
 
   public async personalListAll(pk: string): Promise<PersonalEntity[]> {
+    const cacheKey = `personal_all_${pk}`;
+    const cached = globalCache.get<PersonalEntity[]>(cacheKey);
+    if (cached) return cached;
+
     const sk = `personal#`;
     const keys: IGeneric = { pk, sk };
     const query: IQuery<PersonalEntity> = {
       limit: 1000,
     };
     const [items] = await super.itemsBySearchDTO<PersonalEntity>(keys, query);
-    return items.filter(item => !item.isDelete);
+    const result = (items || []).filter(item => item && !item.isDelete);
+    globalCache.set(cacheKey, result, 30000);
+    return result;
   }
 }

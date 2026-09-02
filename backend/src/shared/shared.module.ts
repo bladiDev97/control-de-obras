@@ -3,6 +3,7 @@ import { Module, Global } from '@nestjs/common';
 import { connection } from './infrastructure/database/typedorm.config';
 import { MailService } from './services/mail.service';
 import { PdfService } from './services/pdf.service';
+import { S3Service } from './services/s3.service';
 import { ConfigRepository } from './infrastructure/repositories/config.repository';
 import { ConfigService } from './domain/services/config.service';
 import { ConfigController } from './application/controller/config.controller';
@@ -20,11 +21,12 @@ import { AreaController } from './application/controller/area.controller';
     },
     MailService,
     PdfService,
+    S3Service,
     ConfigRepository,
     ConfigService,
     AreaRepository,
     AreaService,
   ],
-  exports: ['ENTITY_MANAGER', MailService, PdfService, ConfigRepository, ConfigService, AreaRepository, AreaService],
+  exports: ['ENTITY_MANAGER', MailService, PdfService, S3Service, ConfigRepository, ConfigService, AreaRepository, AreaService],
 })
 export class SharedModule {}

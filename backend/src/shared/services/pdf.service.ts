@@ -50,8 +50,13 @@ export class PdfService {
         doc.on('error', (err) => reject(err));
 
         // 1. Draw the CFE Membrete background image at (0, 0)
-        const membretePath = path.join(process.cwd(), '../frontend/public/membrete.png');
-        if (fs.existsSync(membretePath)) {
+        const membreteCandidates = [
+          path.join(process.cwd(), 'assets/membrete.png'),
+          path.join(__dirname, '../../../assets/membrete.png'),
+          path.join(process.cwd(), '../frontend/public/membrete.png'),
+        ];
+        const membretePath = membreteCandidates.find((p) => fs.existsSync(p));
+        if (membretePath) {
           doc.image(membretePath, 0, 0, { width: 612, height: 792 });
         }
 

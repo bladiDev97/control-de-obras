@@ -5,10 +5,12 @@ import {
   Patch,
   Body,
   Param,
+  Query,
   Res,
   HttpStatus,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -20,8 +22,11 @@ import * as fs from 'fs';
 // Routes
 import { Routes } from 'src/shared/routes/routes.constants';
 
+import { memoryStorage } from 'multer';
+
 // Services
 import { ObraService } from '../../domain/services/obra.service';
+import { S3Service } from 'src/shared/services/s3.service';
 
 // DTOs
 import { ObrasCreateDto } from '../dto/obra.create.dto';
@@ -33,24 +38,51 @@ import { ObrasImportDto } from '../dto/obra.import.dto';
 // Models / Utils
 import { JsonResponse } from 'src/shared/application/model/json-response.class';
 
-// Multer storage configuration for saving PDF plans locally
-const uploadsDir = './uploads';
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = diskStorage({
-  destination: uploadsDir,
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `plano-${uniqueSuffix}${extname(file.originalname)}`);
-  },
-});
+// Multer memory storage configuration for direct buffer upload to S3
+const storage = memoryStorage();
 
 @ApiTags(Routes.Obras.ApiTags)
 @Controller(Routes.Obras.Controller)
 export class ObraController {
-  constructor(private readonly obraService: ObraService) {}
+  constructor(
+    private readonly obraService: ObraService,
+    private readonly s3Service: S3Service,
+  ) {}
+
+  /** Get presigned upload URL for direct S3 upload */
+  @Get('upload-url')
+  public async getUploadUrl(
+    @Res() response: Response,
+    @Query('fileName') fileName: string,
+    @Query('contentType') contentType: string,
+  ): Promise<any> {
+    const result = await this.s3Service.getPresignedUploadUrl(fileName, contentType);
+    const jsonResponse = new JsonResponse({
+      data: result,
+      message: 'Presigned upload URL generated successfully',
+    });
+    response.status(HttpStatus.OK).send(jsonResponse);
+    return jsonResponse;
+  }
+
+  /** Direct file upload fallback */
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file', { storage }))
+  public async uploadFile(
+    @Res() response: Response,
+    @UploadedFile() file: any,
+  ): Promise<any> {
+    if (!file) {
+      throw new BadRequestException('No file provided for upload');
+    }
+    const fileUrl = await this.s3Service.uploadFile(file);
+    const jsonResponse = new JsonResponse({
+      data: { fileUrl },
+      message: 'File uploaded successfully',
+    });
+    response.status(HttpStatus.OK).send(jsonResponse);
+    return jsonResponse;
+  }
 
   /** List works to capitalize (Must be defined BEFORE detail :id route) */
   @Get('capitalizar')
@@ -137,79 +169,48 @@ export class ObraController {
   @Post(Routes.Obras.Update)
   @UseInterceptors(FileInterceptor('planoPdf', { storage }))
   public async update(
-    @Res() response: Response,
+    @Res({ passthrough: true }) response: Response,
     @Body() dto: ObrasUpdateDto,
     @UploadedFile() planoPdf?: any,
   ): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
     const id = dto.solicitudPo;
-    const planoPdfPath = planoPdf ? `uploads/${planoPdf.filename}` : undefined;
+    const planoPdfPath = planoPdf ? await this.s3Service.uploadFile(planoPdf) : undefined;
     const result = await this.obraService.update(pk, id, dto, planoPdfPath);
-    const jsonResponse = new JsonResponse({
+    response.status(HttpStatus.ACCEPTED);
+    return new JsonResponse({
       data: result,
       message: 'Work updated successfully',
     });
-    response.status(HttpStatus.ACCEPTED).send(jsonResponse);
-    return jsonResponse;
   }
 
   /** Terminar Obra */
   @Patch(Routes.Obras.Terminar)
   @ApiParam({ name: 'id', required: true, description: 'ID of the Obra' })
   public async terminar(
-    @Res() response: Response,
+    @Res({ passthrough: true }) response: Response,
     @Param('id') id: string,
     @Body() dto: ObrasTerminarDto,
   ): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
     const result = await this.obraService.terminar(pk, id, dto.fechaTerminoCampo);
-    const jsonResponse = new JsonResponse({
+    response.status(HttpStatus.OK);
+    return new JsonResponse({
       data: result,
       message: 'Work terminated successfully',
     });
-    response.status(HttpStatus.OK).send(jsonResponse);
-    return jsonResponse;
   }
 
   /** Asignar Obra */
   @Patch(Routes.Obras.Asignar)
-  @UseInterceptors(FileInterceptor('planoPdf', { storage }))
-  @ApiConsumes('multipart/form-data')
   @ApiParam({ name: 'id', required: true, description: 'ID of the Obra' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        at: { type: 'string' },
-        tipoObra: { type: 'string' },
-        rd: { type: 'string' },
-        nombreSolicitante: { type: 'string' },
-        ordenRetiro: { type: 'string' },
-        orden: { type: 'string' },
-        activo: { type: 'string' },
-        fechaAsignacion: { type: 'string' },
-        fechaTerminoCampo: { type: 'string' },
-        contrato: { type: 'string' },
-        planoPdf: { type: 'string', format: 'binary' },
-        obra: { type: 'string' },
-        poblacion: { type: 'string' },
-        municipio: { type: 'string' },
-        fechaProgramada: { type: 'string' },
-        fechaPago: { type: 'string' },
-        fechaAut: { type: 'string' },
-        fechaSupervision: { type: 'string' },
-      },
-    },
-  })
   public async asignar(
     @Res() response: Response,
     @Param('id') id: string,
     @Body() body: ObrasAsignarDto,
-    @UploadedFile() file?: any,
   ): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
-    const planoPdfPath = file ? file.path : undefined;
-    const result = await this.obraService.asignar(pk, id, body, planoPdfPath);
+    const result = await this.obraService.asignar(pk, id, body);
     const jsonResponse = new JsonResponse({
       data: result,
       message: 'Work assigned successfully',
