@@ -24,6 +24,15 @@ const formatDateForInput = (val?: string): string => {
   return s;
 };
 
+const getPlanoUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  const cleanPath = url.replace(/^\//, '');
+  return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${cleanPath}`;
+};
+
 export default function ObrasPage() {
   const { obras, loading, refetch } = useObras();
   const [selected, setSelected] = useState<Obra | null>(null);
@@ -104,24 +113,19 @@ export default function ObrasPage() {
   const [newAreaName, setNewAreaName] = useState('');
 
   useEffect(() => {
-    const loadContratos = async () => {
+    const loadMetadata = async () => {
       try {
-        const list = await contratosService.getAll();
-        setContratos(list);
+        const [contratosList, areasList] = await Promise.all([
+          contratosService.getAll(),
+          areasService.getAll(),
+        ]);
+        setContratos(contratosList);
+        setAreas(areasList);
       } catch (err) {
-        console.error('Error cargando contratos en la vista de obras:', err);
+        console.error('Error cargando metadatos en la vista de obras:', err);
       }
     };
-    const loadAreas = async () => {
-      try {
-        const list = await areasService.getAll();
-        setAreas(list);
-      } catch (err) {
-        console.error('Error cargando áreas de zona:', err);
-      }
-    };
-    loadContratos();
-    loadAreas();
+    loadMetadata();
   }, []);
 
   const handleContratoChange = (numeroContrato: string) => {
@@ -447,6 +451,13 @@ export default function ObrasPage() {
 
   const handleConfirmAsignar = async () => {
     if (!assigning) return;
+    const currentAssigning = assigning;
+    const currentPdf = planoPdf;
+
+    // Close modal instantly for seamless UI response
+    setAssigning(null);
+    setPlanoPdf(null);
+
     try {
       const { tieneRetiro, contratista, ...payload } = assignForm;
       if (!tieneRetiro) {
@@ -465,14 +476,17 @@ export default function ObrasPage() {
       }
 
       await obrasService.asignar(
-        assigning.id,
+        currentAssigning.id,
         cleanPayload,
-        planoPdf || undefined,
+        currentPdf || undefined,
       );
-      setAssigning(null);
       refetch();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error asignando obra:', err);
+      const msg = err.response?.data?.message || err.message || 'Error inesperado al asignar la obra.';
+      const formattedMsg = Array.isArray(msg) ? msg.join(', ') : msg;
+      alert(`No se pudo asignar la obra:\n${formattedMsg}`);
+      refetch();
     }
   };
 
@@ -568,8 +582,8 @@ export default function ObrasPage() {
 
     let rawDate = '';
     if (isSseebra) {
-      // Para SSEEBRA los días transcurridos son desde que se pagó la obra
-      rawDate = row.fechaPago || (row as any).fechaAsignacion || (row as any).fechaProgramada || (row as any).fechaAut || '';
+      // Para SSEEBRA los días transcurridos son EXCLUSIVAMENTE desde la fecha de pago (sin usar fechaAsignacion)
+      rawDate = row.fechaPago || '';
     } else {
       // Para RPT y FSUE son desde la fecha de inicio / asignacion / programada
       rawDate = (row as any).fechaAsignacion || (row as any).fechaProgramada || (row as any).fechaAut || row.fechaPago || '';
@@ -599,12 +613,13 @@ export default function ObrasPage() {
     const isSseebra = tipo === 'SSEEBRA' || tipo === 'APORTACIONES';
 
     if (isSseebra) {
-      const rawPago = row.fechaPago || (row as any).fechaAsignacion;
+      const rawPago = row.fechaPago || '';
       if (!rawPago) return 0;
       try {
         const pagoDate = parseLocalDate(rawPago);
         if (isNaN(pagoDate.getTime())) return 0;
-        const diasSseebra = row.diasObraAPORTACIONES || 9;
+        // En SSEEBRA puede ser de 28 días o de 9 días (por defecto 9 si no especifica)
+        const diasSseebra = Number((row as any).diasObraAPORTACIONES) || 9;
         const limitDate = new Date(pagoDate);
         limitDate.setDate(limitDate.getDate() + diasSseebra);
         limitDate.setHours(0, 0, 0, 0);
@@ -1101,7 +1116,7 @@ export default function ObrasPage() {
                     variant="outlined"
                     color="primary"
                     size="small"
-                    href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${(previewObra as any).planoPdf}`}
+                    href={getPlanoUrl((previewObra as any).planoPdf)}
                     target="_blank"
                   >
                     Ver Plano PDF
@@ -1534,7 +1549,7 @@ export default function ObrasPage() {
                   variant="text"
                   color="primary"
                   size="small"
-                  href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${editing.planoPdf}`}
+                  href={getPlanoUrl(editing.planoPdf)}
                   target="_blank"
                   sx={{ fontWeight: 600, textTransform: 'none' }}
                 >

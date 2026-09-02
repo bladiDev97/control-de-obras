@@ -24,7 +24,7 @@ export const EtiquetasTab: React.FC<EtiquetasTabProps> = ({
           Impresión de Etiquetas de Expediente
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Selecciona las obras y presiona "Generar Etiquetas" para imprimir el formato de muesca de folder.
+          Selecciona las obras y presiona "Generar Etiquetas".
         </Typography>
         <Button
           variant="contained"

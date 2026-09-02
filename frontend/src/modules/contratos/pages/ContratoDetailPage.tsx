@@ -160,10 +160,12 @@ export default function ContratoDetailPage() {
     if (!numeroContrato) return;
     setLoading(true);
     try {
-      const cData = await contratosService.getOne(numeroContrato);
-      const aData = await contratosService.getAsignaciones(numeroContrato);
-      const eData = await contratosService.getEstimaciones(numeroContrato);
-      const oData = await obrasService.getAll();
+      const [cData, aData, eData, oData] = await Promise.all([
+        contratosService.getOne(numeroContrato),
+        contratosService.getAsignaciones(numeroContrato),
+        contratosService.getEstimaciones(numeroContrato),
+        obrasService.getAll(),
+      ]);
       
       setContrato(cData);
       setAsignaciones(aData);
@@ -700,7 +702,7 @@ export default function ContratoDetailPage() {
               </Box>
               <Typography variant="h5" sx={{ fontWeight: '900', color: '#14532d', mb: 1 }}>{formatCurrency(totalEjecutado)}</Typography>
               <Typography variant="caption" sx={{ color: '#475569', fontWeight: '600', display: 'block', lineHeight: '1.2' }}>
-                De los cuales <strong>{formatCurrency(totalManoObraEjecutada)}</strong> corresponden a Mano de Obra
+                Suma total a Precios Unitarios (P.U.)
               </Typography>
             </CardContent>
           </Card>
@@ -1152,7 +1154,7 @@ export default function ContratoDetailPage() {
                                 <FastCellInput
                                   id={`estim-cell-${rIdx}-${cIdx}`}
                                   value={qty}
-                                  disabled={!isEditing}
+                                  disabled={true}
                                   activeColor="#005a3c"
                                   onChange={(newVal) => updateEstimacionQuantity(estId, concept.codigo, newVal)}
                                   onNavigateKey={(key) => handleCellNavigate('estim', rIdx, cIdx, key, estimaciones.length, contrato.conceptos.length)}

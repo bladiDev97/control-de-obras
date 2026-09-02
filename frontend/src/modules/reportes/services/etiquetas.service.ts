@@ -26,8 +26,8 @@ export const etiquetasService = {
             <col style="width: 16.66%;">
           </colgroup>
           <tr>
-            <td>${obra.at || '-'}</td>
-            <td colspan="5">${obra.rd || '-'}</td>
+            <td style="font-weight: bold; background-color: #f8fafc;">${obra.at || '-'}</td>
+            <td colspan="5" style="text-align: left; padding-left: 6px;">${obra.rd || obra.obra || '-'}</td>
           </tr>
           <tr>
             <td>${obra.obra || '-'}</td>
@@ -44,20 +44,29 @@ export const etiquetasService = {
     const htmlContent = `
       <html>
         <head>
-          <title>Impresión de Etiquetas</title>
+          <title>Impresión de Etiquetas de Expediente</title>
           <style>
+            @page {
+              size: letter portrait;
+              margin: 1cm;
+            }
             body {
               font-family: 'Arial', sans-serif;
               margin: 0;
-              padding: 1cm;
+              padding: 0;
               background-color: #fff;
             }
             .label-container {
-              /* Tamaño estándar de una muesca de folder 1/2 corte carta */
+              /* Medidas exactas de la etiqueta: Largo 14.5cm x Ancho (Alto) 1.5cm */
               width: 14.5cm;
-              height: 2.5cm; 
-              margin-bottom: 1cm;
+              height: 1.5cm; 
+              margin-bottom: 0.6cm;
               page-break-inside: avoid;
+              border: 1.5px dashed #000000; /* Línea punteada exterior para guiar el recorte con tijera/cúter */
+              box-sizing: border-box;
+              padding: 1px;
+              position: relative;
+              background-color: #ffffff;
             }
             .label-table {
               width: 100%;
@@ -66,18 +75,24 @@ export const etiquetasService = {
               table-layout: fixed;
             }
             .label-table td {
-              border: 2px solid #000;
-              font-size: 11px;
+              border: 1px solid #000000;
+              font-size: 8pt;
               font-weight: bold;
               text-align: center;
               vertical-align: middle;
-              padding: 2px 4px;
+              padding: 1px 2px;
               word-wrap: break-word;
               overflow: hidden;
+              line-height: 1.1;
             }
             
             @media print {
-              body { padding: 0.5cm; }
+              body { padding: 0; }
+              .label-container {
+                border: 1.5px dashed #000000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
             }
           </style>
         </head>
@@ -116,3 +131,4 @@ export const etiquetasService = {
     window.addEventListener('message', handleMessage);
   }
 };
+

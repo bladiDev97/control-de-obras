@@ -63,9 +63,10 @@ cd ..
 echo ""
 echo "🌐 5. Desplegando Frontend SPA a AWS S3 Website..."
 BUCKET_NAME="control-de-obras-frontend-$ACCOUNT_ID"
-aws s3 sync frontend/dist/ "s3://$BUCKET_NAME/"
+aws s3 sync frontend/dist/ "s3://$BUCKET_NAME/" --delete
+aws s3 cp frontend/dist/index.html "s3://$BUCKET_NAME/index.html" --cache-control "no-cache, no-store, must-revalidate"
 
-FRONTEND_URL="http://$BUCKET_NAME.s3-website-$REGION.amazonaws.com"
+FRONTEND_URL="http://$BUCKET_NAME.s3-website.$REGION.amazonaws.com"
 
 echo ""
 echo "=========================================="

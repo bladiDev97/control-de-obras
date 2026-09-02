@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { api } from '../../../services/api';
 import { Obra } from '../types/obra.types';
 
@@ -12,29 +13,72 @@ export const obrasService = {
   getOne: (id: string) => api.get<ApiResponse<Obra>>(`/obras/${id}`).then((r) => r.data.data),
   terminar: (id: string, fechaTerminoCampo: string) =>
     api.patch<ApiResponse<any>>(`/obras/${id}/terminar`, { fechaTerminoCampo }).then((r) => r.data.data),
-  asignar: (id: string, data: Partial<Obra>, planoPdf?: File) => {
-    const formData = new FormData();
-    Object.entries(data).forEach(([k, v]) => formData.append(k, String(v ?? '')));
-    if (planoPdf) formData.append('planoPdf', planoPdf);
-    return api.patch<ApiResponse<any>>(`/obras/${id}/asignar`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then((r) => r.data.data);
-  },
-  update: (data: Partial<Obra> & { solicitudPo: string }, planoPdf?: File) => {
+
+  asignar: async (id: string, data: Partial<Obra>, planoPdf?: File) => {
+    const finalPayload: Partial<Obra> = { ...data };
+
     if (planoPdf) {
-      const formData = new FormData();
-      Object.entries(data).forEach(([k, v]) => {
-        if (v !== undefined && v !== null) {
-          formData.append(k, String(v));
+      try {
+        const presigned = await api
+          .get<ApiResponse<{ uploadUrl: string; fileUrl: string }>>('/obras/upload-url', {
+            params: { fileName: planoPdf.name, contentType: planoPdf.type || 'application/pdf' },
+          })
+          .then((r) => r.data.data);
+
+        await axios.put(presigned.uploadUrl, planoPdf, {
+          headers: { 'Content-Type': planoPdf.type || 'application/pdf' },
+        });
+
+        finalPayload.planoPdf = presigned.fileUrl;
+      } catch (uploadError) {
+        console.warn('Presigned S3 upload failed, trying backend upload endpoint:', uploadError);
+        try {
+          const formData = new FormData();
+          formData.append('file', planoPdf);
+          const uploadRes = await api.post<ApiResponse<{ fileUrl: string }>>('/obras/upload', formData).then((r) => r.data.data);
+          finalPayload.planoPdf = uploadRes.fileUrl;
+        } catch (fallbackError) {
+          console.error('All file upload mechanisms failed:', fallbackError);
         }
-      });
-      formData.append('planoPdf', planoPdf);
-      return api.post<ApiResponse<Obra>>('/obras/update', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }).then((r) => r.data.data);
+      }
     }
-    return api.post<ApiResponse<Obra>>('/obras/update', data).then((r) => r.data.data);
+
+    const cleanId = encodeURIComponent(id);
+    return api.patch<ApiResponse<any>>(`/obras/${cleanId}/asignar`, finalPayload).then((r) => r.data.data);
   },
+
+  update: async (data: Partial<Obra> & { solicitudPo: string }, planoPdf?: File) => {
+    const finalPayload: Partial<Obra> = { ...data };
+
+    if (planoPdf) {
+      try {
+        const presigned = await api
+          .get<ApiResponse<{ uploadUrl: string; fileUrl: string }>>('/obras/upload-url', {
+            params: { fileName: planoPdf.name, contentType: planoPdf.type || 'application/pdf' },
+          })
+          .then((r) => r.data.data);
+
+        await axios.put(presigned.uploadUrl, planoPdf, {
+          headers: { 'Content-Type': planoPdf.type || 'application/pdf' },
+        });
+
+        finalPayload.planoPdf = presigned.fileUrl;
+      } catch (uploadError) {
+        console.warn('Presigned S3 upload failed, trying backend upload endpoint:', uploadError);
+        try {
+          const formData = new FormData();
+          formData.append('file', planoPdf);
+          const uploadRes = await api.post<ApiResponse<{ fileUrl: string }>>('/obras/upload', formData).then((r) => r.data.data);
+          finalPayload.planoPdf = uploadRes.fileUrl;
+        } catch (fallbackError) {
+          console.error('All file upload mechanisms failed:', fallbackError);
+        }
+      }
+    }
+
+    return api.post<ApiResponse<Obra>>('/obras/update', finalPayload).then((r) => r.data.data);
+  },
+
   getBitacoras: (id: string) =>
     api.get<ApiResponse<any[]>>(`/obras/${id}/bitacoras`).then((r) => r.data.data),
   getOficio: (id: string) =>

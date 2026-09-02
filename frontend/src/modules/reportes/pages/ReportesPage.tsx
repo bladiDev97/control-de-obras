@@ -80,17 +80,16 @@ export default function ReportesPage() {
     const loadData = async () => {
       setLoading(true);
       try {
-        const data = await obrasService.getAll();
+        const [data, contratosList, personnel] = await Promise.all([
+          obrasService.getAll(),
+          contratosService.getAll(),
+          personalService.getAll(),
+        ]);
+        
         // Only show works that have been assigned (have a contract)
         const assignedObras = data.filter((o) => o.contrato && o.contrato.trim() !== '');
         setObras(assignedObras);
-
-        // Load contracts
-        const contratosList = await contratosService.getAll();
         setContratos(contratosList);
-
-        // Load signatures from Personal
-        const personnel = await personalService.getAll();
         
         const supervisor = personnel.find(p => p.cargo.toLowerCase().includes('supervisor'));
         if (supervisor) {
