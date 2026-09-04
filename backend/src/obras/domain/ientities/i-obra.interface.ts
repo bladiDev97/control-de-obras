@@ -39,6 +39,7 @@ export interface IObra extends IGenericEntity {
 
   // Oficios and new assignments fields
   oficioConsecutivo?: number;
+  numeroOficio?: string;
   atRetiro?: string;
   siadRetiro?: string;
   coordenadaX?: string;

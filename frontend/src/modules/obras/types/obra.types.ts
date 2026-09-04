@@ -29,6 +29,7 @@ export interface Obra {
 
   // Reports and contractor metadata fields
   oficioConsecutivo?: number;
+  oficio?: string;
   contratista?: string;
   atRetiro?: string;
   siadRetiro?: string;

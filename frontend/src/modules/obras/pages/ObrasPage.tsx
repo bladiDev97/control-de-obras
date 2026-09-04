@@ -6,6 +6,7 @@ import { obrasService, areasService } from '../services/obras.service';
 import { contratosService } from '../../contratos/services/contratos.service';
 import ReusableTable, { Column } from '../../../components/Table/ReusableTable';
 import ReusableModal from '../../../components/Modal/ReusableModal';
+import { AppleLoadingOverlay } from '../../../components/Modal/AppleLoadingOverlay';
 import UploadPdf from '../../../components/UploadPdf/UploadPdf';
 import { Obra } from '../types/obra.types';
 
@@ -43,6 +44,11 @@ export default function ObrasPage() {
 
   // Contracts list state
   const [contratos, setContratos] = useState<any[]>([]);
+
+  // Apple loading HUD state
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingTitle, setProcessingTitle] = useState('Asignando obra...');
+  const [processingSubtitle, setProcessingSubtitle] = useState('Procesando información, por favor espere');
 
   // States for Assign action
   const [assigning, setAssigning] = useState<Obra | null>(null);
@@ -209,8 +215,9 @@ export default function ObrasPage() {
       render: (row) => {
         const parts = [];
         if ((row as any).poblacion) parts.push((row as any).poblacion.toUpperCase());
-        if ((row as any).municipio) parts.push(`MUNICIPIO DE ${(row as any).municipio.toUpperCase()}`);
-        const text = parts.length > 0 ? parts.join(' ') : (row.rd || '');
+        if ((row as any).nombreSolicitante) parts.push((row as any).nombreSolicitante.toUpperCase());
+        let text = parts.length > 0 ? parts.join(' ') : (row.rd || '');
+        if (text) text = text.replace(/\s*MUNICIPIO\s+DE\s+.*$/i, '').trim();
         return (
           <div
             title={text}
@@ -458,6 +465,11 @@ export default function ObrasPage() {
     setAssigning(null);
     setPlanoPdf(null);
 
+    // Show Apple Loading Overlay HUD
+    setProcessingTitle('Asignando Obra');
+    setProcessingSubtitle(`Asignando ${currentAssigning.solicitudPo || currentAssigning.obra || 'la obra'}... Por favor espere.`);
+    setIsProcessing(true);
+
     try {
       const { tieneRetiro, contratista, ...payload } = assignForm;
       if (!tieneRetiro) {
@@ -471,8 +483,9 @@ export default function ObrasPage() {
         diasObraAPORTACIONES: payload.diasObraAPORTACIONES ? Number(payload.diasObraAPORTACIONES) : undefined,
       };
 
-      if (payload.poblacion && payload.municipio) {
-        cleanPayload.rd = `${payload.poblacion} municipio de ${payload.municipio}`;
+      if (payload.poblacion || payload.nombreSolicitante) {
+        const parts = [payload.poblacion, payload.nombreSolicitante].filter(Boolean);
+        cleanPayload.rd = parts.join(' ');
       }
 
       await obrasService.asignar(
@@ -480,18 +493,30 @@ export default function ObrasPage() {
         cleanPayload,
         currentPdf || undefined,
       );
-      refetch();
+      await refetch();
     } catch (err: any) {
       console.error('Error asignando obra:', err);
       const msg = err.response?.data?.message || err.message || 'Error inesperado al asignar la obra.';
       const formattedMsg = Array.isArray(msg) ? msg.join(', ') : msg;
       alert(`No se pudo asignar la obra:\n${formattedMsg}`);
-      refetch();
+      await refetch();
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handleConfirmEdit = async () => {
     if (!editing) return;
+    const currentEditing = editing;
+    const currentPdf = planoPdf;
+
+    setEditing(null);
+    setPlanoPdf(null);
+
+    setProcessingTitle('Guardando Cambios');
+    setProcessingSubtitle(`Actualizando ${currentEditing.solicitudPo || currentEditing.obra || 'la obra'}... Por favor espere.`);
+    setIsProcessing(true);
+
     try {
       const { tieneRetiro, contratista, ...payload } = editForm as any;
       if (!tieneRetiro) {
@@ -500,8 +525,9 @@ export default function ObrasPage() {
         payload.siadRetiro = '';
       }
 
-      if (payload.poblacion && payload.municipio) {
-        payload.rd = `${payload.poblacion} municipio de ${payload.municipio}`;
+      if (payload.poblacion || payload.nombreSolicitante) {
+        const parts = [payload.poblacion, payload.nombreSolicitante].filter(Boolean);
+        payload.rd = parts.join(' ');
       }
 
       if (payload.fechaFinConstruccion) {
@@ -520,14 +546,14 @@ export default function ObrasPage() {
         }
       });
 
-      cleanPayload.solicitudPo = editForm.solicitudPo || editing.solicitudPo;
+      cleanPayload.solicitudPo = editForm.solicitudPo || currentEditing.solicitudPo;
 
-      await obrasService.update(cleanPayload as any, planoPdf || undefined);
-      setEditing(null);
-      setPlanoPdf(null);
-      refetch();
+      await obrasService.update(cleanPayload as any, currentPdf || undefined);
+      await refetch();
     } catch (err) {
       console.error('Error actualizando obra:', err);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1029,8 +1055,8 @@ export default function ObrasPage() {
                 <strong style={{ color: '#64748b' }}>Orden:</strong> {previewObra.orden || '-'}
               </div>
               <div>
-                <strong style={{ color: '#64748b' }}>RD (Población/Municipio):</strong>{' '}
-                {`${(previewObra as any).poblacion || ''} ${(previewObra as any).municipio ? `MUNICIPIO DE ${(previewObra as any).municipio}` : ''}`.trim() || previewObra.rd || '-'}
+                <strong style={{ color: '#64748b' }}>RD (Población/Solicitante):</strong>{' '}
+                {`${(previewObra as any).poblacion || ''} ${previewObra.nombreSolicitante || ''}`.trim() || previewObra.rd?.replace(/\s*municipio\s+de\s+.*$/i, '') || '-'}
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <strong style={{ color: '#64748b' }}>Nombre del Solicitante:</strong>{' '}
@@ -1590,6 +1616,13 @@ export default function ObrasPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Overlay con Animación estilo Apple */}
+      <AppleLoadingOverlay
+        open={isProcessing}
+        title={processingTitle}
+        subtitle={processingSubtitle}
+      />
     </div>
   );
 }

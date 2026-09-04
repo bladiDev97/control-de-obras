@@ -85,6 +85,10 @@ export const obrasService = {
     api.get<ApiResponse<any>>(`/obras/${id}/oficio`).then((r) => r.data.data),
   importar: (rows: any[], type?: 'siad-plus' | 'senasol') =>
     api.post<ApiResponse<{ count: number }>>('/obras/importar', { rows, type }).then((r) => r.data.data),
+  auditConsecutivos: () =>
+    api.get<ApiResponse<any>>('/obras/consecutivos/audit').then((r) => r.data.data),
+  resequenceConsecutivos: () =>
+    api.post<ApiResponse<any>>('/obras/consecutivos/resequence').then((r) => r.data.data),
 };
 
 export const areasService = {

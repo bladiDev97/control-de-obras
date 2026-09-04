@@ -230,4 +230,43 @@ export class ObraController {
     response.status(HttpStatus.CREATED).send(jsonResponse);
     return jsonResponse;
   }
+
+  /** Audit consecutive numbers per year to detect duplicates or gaps */
+  @Get(Routes.Obras.AuditConsecutivos)
+  public async auditConsecutivos(@Res() response: Response): Promise<any> {
+    const pk = 'bladi.PigeonSave@gmail.com';
+    const result = await this.obraService.auditConsecutivos(pk);
+    const jsonResponse = new JsonResponse({
+      data: result,
+      message: 'Consecutivo audit completed successfully',
+    });
+    response.status(HttpStatus.OK).send(jsonResponse);
+    return jsonResponse;
+  }
+
+  /** Trigger full deduplication and re-sequencing of consecutives under demand */
+  @Post(Routes.Obras.ResequenceConsecutivos)
+  public async resequenceConsecutivos(@Res() response: Response): Promise<any> {
+    const pk = 'bladi.PigeonSave@gmail.com';
+    const result = await this.obraService.resequenceAndFixConsecutivos(pk);
+    const jsonResponse = new JsonResponse({
+      data: { count: result.length, works: result },
+      message: 'Consecutivos resequenced successfully',
+    });
+    response.status(HttpStatus.OK).send(jsonResponse);
+    return jsonResponse;
+  }
+
+  /** Directly update all Obra items in DynamoDB database setting rd = Poblacion + NombreSolicitante */
+  @Post('fix-database-rd')
+  public async fixDatabaseRd(@Res() response: Response): Promise<any> {
+    const pk = 'bladi.PigeonSave@gmail.com';
+    const result = await this.obraService.fixDatabaseRd(pk);
+    const jsonResponse = new JsonResponse({
+      data: result,
+      message: 'Database RD fields updated successfully for all records',
+    });
+    response.status(HttpStatus.OK).send(jsonResponse);
+    return jsonResponse;
+  }
 }

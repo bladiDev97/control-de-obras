@@ -76,9 +76,11 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
     if (!previewData) return;
     try {
       const dateText = formatDateSpanish(new Date().toISOString().slice(0, 10));
-      const consecutivo = previewData.oficioConsecutivo 
-        ? `CONS. ZONA -${String(previewData.oficioConsecutivo).padStart(4, '0')}/${previewData.anio || '2026'}`
-        : 'CONS. ZONA -0000/2026';
+      const consecutivo = previewData.numeroOficio
+        ? previewData.numeroOficio
+        : previewData.oficioConsecutivo 
+          ? `CONS. ZONA -${String(previewData.oficioConsecutivo).padStart(4, '0')}/${previewData.anio || '2026'}`
+          : 'CONS. ZONA -0000/2026';
       
       const superintendente = (superintendenteNombre || 'N/A').toUpperCase();
       const contrato = previewData.contrato || 'N/A';

@@ -14,7 +14,17 @@ export const etiquetasService = {
 
     document.body.appendChild(iframe);
 
-    let labelsHtml = obras.map(obra => `
+    let labelsHtml = obras.map(obra => {
+      let poblacion = (obra.poblacion || '').trim();
+      if (!poblacion && obra.rd) {
+        poblacion = obra.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      }
+
+      const nombre = (obra.nombreSolicitante || '').trim();
+      const parts = [poblacion, nombre].filter(Boolean).join(' ');
+      const rdLabel = parts ? parts : (obra.rd ? obra.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim() : (obra.obra || '-'));
+
+      return `
       <div class="label-container">
         <table class="label-table">
           <colgroup>
@@ -27,7 +37,7 @@ export const etiquetasService = {
           </colgroup>
           <tr>
             <td style="font-weight: bold; background-color: #f8fafc;">${obra.at || '-'}</td>
-            <td colspan="5" style="text-align: left; padding-left: 6px;">${obra.rd || obra.obra || '-'}</td>
+            <td colspan="5" style="text-align: left; padding-left: 6px;">${rdLabel}</td>
           </tr>
           <tr>
             <td>${obra.obra || '-'}</td>
@@ -39,7 +49,8 @@ export const etiquetasService = {
           </tr>
         </table>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     const htmlContent = `
       <html>

@@ -76,9 +76,11 @@ export const OficioPreviewDialog: React.FC<OficioPreviewDialogProps> = ({
     try {
       const dateText = formatDateSpanish(previewData.fechaAsignacion || new Date().toISOString().slice(0, 10));
       const limitDateText = formatDateSpanish(previewData.fechaFinConstruccion || '');
-      const consecutivo = previewData.oficioConsecutivo 
-        ? `CONS. ZONA -${String(previewData.oficioConsecutivo).padStart(4, '0')}/${previewData.anio || '2026'}`
-        : 'CONS. ZONA -0000/2026';
+      const consecutivo = previewData.numeroOficio
+        ? previewData.numeroOficio
+        : previewData.oficioConsecutivo 
+          ? `CONS. ZONA -${String(previewData.oficioConsecutivo).padStart(4, '0')}/${previewData.anio || '2026'}`
+          : 'CONS. ZONA -0000/2026';
       
       const contratista = (contratistaNombre === 'N/A' || !contratistaNombre ? 'GCPM COMUNICACIONES' : contratistaNombre).toUpperCase();
       const domicilio = (contratistaDomicilio === 'N/A' || !contratistaDomicilio ? 'Calle Luis Moya No. 105 H2, Col. Centro, C.P. 58000, Morelia, Mich. tel.: 443 4530752.' : contratistaDomicilio).toUpperCase();
@@ -254,7 +256,7 @@ export const OficioPreviewDialog: React.FC<OficioPreviewDialogProps> = ({
               >
                 <Box sx={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ textAlign: 'right', fontSize: '13px', mb: '2px' }}>
-                    Oficio Núm. CONS. ZONA - {String(previewData.oficioConsecutivo || '').padStart(4, '0')}/{previewData.anio || '2026'}
+                    Oficio Núm. {previewData.numeroOficio || (previewData.oficioConsecutivo ? `CONS. ZONA -${String(previewData.oficioConsecutivo).padStart(4, '0')}/${previewData.anio || '2026'}` : '-')}
                   </Box>
                   <Box sx={{ textAlign: 'right', fontWeight: 'bold', fontSize: '13px', mb: '25px' }}>
                     Asunto: Oficio de inicio de obra

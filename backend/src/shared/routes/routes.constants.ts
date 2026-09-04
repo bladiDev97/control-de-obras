@@ -24,6 +24,8 @@ export const Routes = {
     Importar: 'importar',
     Bitacoras: ':id/bitacoras',
     Oficio: ':id/oficio',
+    AuditConsecutivos: 'consecutivos/audit',
+    ResequenceConsecutivos: 'consecutivos/resequence',
   },
 
   Personal: {

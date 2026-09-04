@@ -129,6 +129,7 @@ export default function ReportesPage() {
       )
     },
     { key: 'at', label: 'AT' },
+    { key: 'rd', label: 'RD', render: (row: Obra) => row.rd || '-' },
     { key: 'obra', label: 'OBRA' },
     { key: 'activo', label: 'ACTIVO' },
     { key: 'orden', label: 'ORDEN' },
@@ -235,7 +236,11 @@ export default function ReportesPage() {
 
       const dateText = formatLongDate(type === 'oficio' ? detail.fechaAsignacion : new Date().toISOString().slice(0, 10));
       const limitDateText = formatLongDate(detail.fechaFinConstruccion);
-      const consecutivo = detail.numeroOficio || 'CONS. ZONA -0000/2026';
+      const consecutivo = detail.numeroOficio 
+        ? detail.numeroOficio
+        : detail.oficioConsecutivo 
+          ? `CONS. ZONA -${String(detail.oficioConsecutivo).padStart(4, '0')}/${detail.anio || '2026'}`
+          : 'CONS. ZONA -0000/2026';
       
       const contratista = (contratistaNombre || 'N/A').toUpperCase();
       const domicilio = (contratistaDomicilio || 'N/A').toUpperCase();
@@ -528,60 +533,68 @@ export default function ReportesPage() {
       key: 'oficioConsecutivo',
       label: 'Oficio',
       render: (row: Obra) => {
-        if (!row.oficioConsecutivo) return '-';
-        const padding = String(row.oficioConsecutivo).padStart(4, '0');
-        return `CONS. ZONA -${padding}/${row.anio || '2026'}`;
+        if (row.numeroOficio) return row.numeroOficio;
+        if (row.oficio && row.oficio.trim() !== '') return row.oficio;
+        if (row.oficioConsecutivo) {
+          const padding = String(row.oficioConsecutivo).padStart(4, '0');
+          return `CONS. ZONA -${padding}/${row.anio || '2026'}`;
+        }
+        return '-';
       }
     },
     {
       key: 'id',
       label: 'Acciones',
-      render: (row: Obra) => (
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {activeTab === 'asignacion' ? (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<VisibilityIcon />}
-              onClick={() => handleOpenPreview(row.id, 'oficio')}
-              sx={{
-                backgroundColor: 'var(--color-primary)',
-                color: 'white',
-                fontWeight: 'bold',
-                borderRadius: '8px',
-                fontSize: '0.7rem',
-                textTransform: 'none',
-                '&:hover': {
-                  backgroundColor: 'var(--color-secondary)',
-                }
-              }}
-            >
-              Oficio Asignación
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              size="small"
-              color="success"
-              startIcon={<VisibilityIcon />}
-              onClick={() => handleOpenPreview(row.id, 'conciliacion')}
-              sx={{
-                backgroundColor: '#2e7d32',
-                color: 'white',
-                fontWeight: 'bold',
-                borderRadius: '8px',
-                fontSize: '0.7rem',
-                textTransform: 'none',
-                '&:hover': {
-                  backgroundColor: '#1b5e20',
-                }
-              }}
-            >
-              Conciliación Obra
-            </Button>
-          )}
-        </Box>
-      )
+      render: (row: Obra) => {
+        const isAssigned = (row.estatus && row.estatus !== 'PENDIENTE') || (row.contrato && row.contrato.trim() !== '') || (row.fechaAsignacion && row.fechaAsignacion.trim() !== '');
+        return (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {activeTab === 'asignacion' ? (
+              <Button
+                variant="contained"
+                size="small"
+                disabled={!isAssigned}
+                startIcon={<VisibilityIcon />}
+                onClick={() => handleOpenPreview(row.id, 'oficio')}
+                sx={{
+                  backgroundColor: isAssigned ? 'var(--color-primary)' : '#94a3b8',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  borderRadius: '8px',
+                  fontSize: '0.7rem',
+                  textTransform: 'none',
+                  '&:hover': {
+                    backgroundColor: isAssigned ? 'var(--color-secondary)' : '#94a3b8',
+                  }
+                }}
+              >
+                {isAssigned ? 'Oficio Asignación' : 'No Asignada'}
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                size="small"
+                color="success"
+                startIcon={<VisibilityIcon />}
+                onClick={() => handleOpenPreview(row.id, 'conciliacion')}
+                sx={{
+                  backgroundColor: '#2e7d32',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  borderRadius: '8px',
+                  fontSize: '0.7rem',
+                  textTransform: 'none',
+                  '&:hover': {
+                    backgroundColor: '#1b5e20',
+                  }
+                }}
+              >
+                Conciliación Obra
+              </Button>
+            )}
+          </Box>
+        );
+      }
     }
   ];
 

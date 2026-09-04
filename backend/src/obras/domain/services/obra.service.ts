@@ -25,6 +25,7 @@ import { ObrasUpdateDto } from '../../application/dto/obra.update.dto';
 @Injectable()
 export class ObraService {
   private readonly logger = new Logger(ObraService.name);
+  private resequenceLocks = new Map<string, Promise<IObra[]>>();
 
   constructor(
     private readonly obraRepository: ObraRepository,
@@ -35,12 +36,47 @@ export class ObraService {
     private readonly s3Service: S3Service,
   ) {}
 
-  /** List all Obras and calculate diasSinCapitalizar */
+  /**
+   * Robust date parser converting various date formats to epoch milliseconds for chronological sorting.
+   * Handles: ISO formats ("2026-01-15", "2026-01-15T00:00:00Z"), Spanish format ("15/01/2026", "15-01-2026"), etc.
+   */
+  public parseDateToTimestamp(rawDate?: string | null): number {
+    if (!rawDate || typeof rawDate !== 'string') return 0;
+    const cleaned = rawDate.trim();
+    if (!cleaned || cleaned === 'undefined' || cleaned === 'null') return 0;
+
+    // Check DD/MM/YYYY or DD-MM-YYYY format
+    const dmyMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (dmyMatch) {
+      const day = parseInt(dmyMatch[1], 10);
+      const month = parseInt(dmyMatch[2], 10) - 1;
+      const year = parseInt(dmyMatch[3], 10);
+      const parsed = new Date(year, month, day).getTime();
+      if (!isNaN(parsed)) return parsed;
+    }
+
+    // Try standard Date parsing (YYYY-MM-DD or ISO)
+    const parsed = Date.parse(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  /** Helper to determine if an Obra is assigned */
+  public isObraAsignada(obra: IObra): boolean {
+    const calculatedEstatus = this.determineEstatus(obra);
+    if (calculatedEstatus !== 'PENDIENTE') return true;
+    if (obra.estatus && obra.estatus !== 'PENDIENTE') return true;
+    if (obra.contrato && obra.contrato.trim() !== '') return true;
+    if (obra.contratista && obra.contratista.trim() !== '') return true;
+    if (obra.fechaAsignacion && obra.fechaAsignacion.trim() !== '') return true;
+    if (obra.oficioConsecutivo != null && Number(obra.oficioConsecutivo) > 0) return true;
+    if (obra.oficio && obra.oficio.trim() !== '') return true;
+    return false;
+  }
+
+  /** List all Obras, auto-assign consecutive numbers to any assigned obras missing them, and calculate diasSinCapitalizar */
   public async getAll(pk: string): Promise<IObra[]> {
-    const [obras, contracts] = await Promise.all([
-      this.obraRepository.obraListAll(pk),
-      this.contratoRepository.contratoListAll(pk)
-    ]);
+    const obras = await this.resequenceAndFixConsecutivos(pk);
+    const contracts = await this.contratoRepository.contratoListAll(pk);
     const contractMap = new Map((contracts || []).map((c) => [c.sk?.replace('contrato#', ''), c]));
 
     return obras.map((obra) => {
@@ -53,11 +89,31 @@ export class ObraService {
       const contract = obra.contrato ? contractMap.get(obra.contrato) : null;
       const contratista = contract ? (contract.contratista || '') : '';
 
+      const isAssigned = this.isObraAsignada(obra);
+      const padding = obra.oficioConsecutivo ? String(obra.oficioConsecutivo).padStart(4, '0') : '0000';
+      const numeroOficio = isAssigned && obra.oficioConsecutivo
+        ? `CONS. ZONA -${padding}/${obra.anio || new Date().getFullYear().toString()}`
+        : (obra.oficio && obra.oficio.trim() !== '')
+        ? obra.oficio
+        : undefined;
+
+      const poblacion = (obra.poblacion || '').trim();
+      const nombre = (obra.nombreSolicitante || '').trim();
+      const parts = [poblacion, nombre].filter(Boolean).join(' ');
+      let rd = obra.rd || '';
+      if (parts) {
+        rd = parts;
+      } else if (rd) {
+        rd = rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      }
+
       return {
         ...obra,
         id,
         diasSinCapitalizar,
         contratista,
+        numeroOficio,
+        rd,
       };
     });
   }
@@ -166,6 +222,11 @@ export class ObraService {
 
     updatedData.estatus = this.determineEstatus(updatedData);
     const updated = await this.obraRepository.obraUpdate(updatedData);
+
+    if (this.isObraAsignada(updatedData)) {
+      await this.ensureOficioConsecutivo(pk, updatedData);
+    }
+
     return {
       ...updated,
       id: sk,
@@ -192,7 +253,6 @@ export class ObraService {
     };
   }
 
-  /** Assign work fields */
   /** Assign work fields */
   public async asignar(
     pk: string,
@@ -257,17 +317,27 @@ export class ObraService {
     const updated = await this.obraRepository.obraUpdate(updatedData);
     this.logger.log(`[PERF] obraUpdate completed in ${Date.now() - dbStart}ms`);
 
-    // 3. Dispatch email notification before ending Lambda execution to guarantee delivery
+    // 3. Ensure unique persistent consecutive number
+    const consecutivoNum = await this.ensureOficioConsecutivo(pk, updatedData);
+
+    // 4. Dispatch email notification before ending Lambda execution to guarantee delivery
     try {
       await this.sendAssignmentNotificationEmail(pk, updatedData);
     } catch (err: any) {
       this.logger.error(`[EMAIL DISPATCH ERROR] Error sending email for obra ${updatedData.sk}:`, err);
     }
 
+    const padding = consecutivoNum ? String(consecutivoNum).padStart(4, '0') : '0000';
+    const numeroOficio = consecutivoNum
+      ? `CONS. ZONA -${padding}/${updatedData.anio || new Date().getFullYear().toString()}`
+      : undefined;
+
     this.logger.log(`[PERF] Total asignar flow HTTP response ready in ${Date.now() - startTime}ms`);
     return {
       ...updated,
       id,
+      oficioConsecutivo: consecutivoNum || updated.oficioConsecutivo,
+      numeroOficio,
     };
   }
 
@@ -362,17 +432,7 @@ export class ObraService {
       if (auxiliarEmail) ccEmails.push(auxiliarEmail);
 
       // 3. Generate the Oficio de Asignación PDF using the official consecutive format from getOficioAsignacion
-      
-      // Calculate consecutive in memory to avoid writing to database before sending the email successfully
-      let consecutivoNum = obra.oficioConsecutivo;
-      if (!consecutivoNum) {
-        const year = obra.anio || new Date().getFullYear().toString();
-        const allObras = await this.obraRepository.obraListAll(pk);
-        const sameYearObras = allObras.filter((o) => o.anio === year && o.oficioConsecutivo);
-        const maxConsecutivo = sameYearObras.reduce((max, o) => Math.max(max, o.oficioConsecutivo || 0), 0);
-        consecutivoNum = maxConsecutivo + 1;
-        obra.oficioConsecutivo = consecutivoNum; // Assign in-memory to preserve for saving later
-      }
+      const consecutivoNum = await this.ensureOficioConsecutivo(pk, obra);
       const padding = String(consecutivoNum).padStart(4, '0');
       const consecutivo = `CONS. ZONA -${padding}/${obra.anio || new Date().getFullYear().toString()}`;
 
@@ -915,7 +975,7 @@ export class ObraService {
           at: at || existing?.at || '',
           obra: obra || existing?.obra || 'Importada',
           tipoObra: tipoObra || existing?.tipoObra || 'SSEEBRA',
-          rd: (poblacion && municipio) ? `${poblacion} municipio de ${municipio}` : (existing?.rd || ''),
+          rd: (poblacion || nombreSolicitante) ? [poblacion, nombreSolicitante].filter(Boolean).join(' ') : (existing?.rd || ''),
           nombreSolicitante: nombreSolicitante || existing?.nombreSolicitante || '',
           poblacion: poblacion || existing?.poblacion || '',
           municipio: municipio || existing?.municipio || '',
@@ -957,6 +1017,7 @@ export class ObraService {
         this.logger.error('Error importing row:', error);
       }
     }
+    await this.resequenceAndFixConsecutivos(pk);
     return { count };
   }
 
@@ -1103,26 +1164,373 @@ export class ObraService {
     }
   }
 
-  /** Get Oficio de Asignación dynamic metadata with persistent consecutive numbering */
-  public async getOficioAsignacion(pk: string, id: string): Promise<any> {
-    const keys: IGeneric = { pk, sk: id };
-    const obra = await this.obraRepository.obraDetail(keys);
-
-    if (!obra.oficioConsecutivo) {
-      const year = obra.anio || new Date().getFullYear().toString();
-      const allObras = await this.obraRepository.obraListAll(pk);
-      const sameYearObras = allObras.filter((o) => o.anio === year && o.oficioConsecutivo);
-      const maxConsecutivo = sameYearObras.reduce((max, o) => Math.max(max, o.oficioConsecutivo || 0), 0);
-      obra.oficioConsecutivo = maxConsecutivo + 1;
-      obra.sk = id;
-      await this.obraRepository.obraUpdate(obra);
+  /**
+   * Thread-safe wrapper to deduplicate, normalize, and resequence oficioConsecutivo per year.
+   * Prevents race conditions by locking concurrent execution per tenant (pk).
+   */
+  public async resequenceAndFixConsecutivos(pk: string): Promise<IObra[]> {
+    const existingJob = this.resequenceLocks.get(pk);
+    if (existingJob) {
+      try {
+        await existingJob;
+      } catch {
+        // ignore errors from prior runs
+      }
     }
 
-    const padding = String(obra.oficioConsecutivo).padStart(4, '0');
-    const numeroOficio = `CONS. ZONA -${padding}/${obra.anio || '2026'}`;
+    const job = this.executeResequence(pk);
+    this.resequenceLocks.set(pk, job);
+    try {
+      const result = await job;
+      return result;
+    } finally {
+      if (this.resequenceLocks.get(pk) === job) {
+        this.resequenceLocks.delete(pk);
+      }
+    }
+  }
+
+  private async executeResequence(pk: string): Promise<IObra[]> {
+    const rawObras = await this.obraRepository.obraListAll(pk);
+    const resultObras: IObra[] = [];
+
+    // Group obras by normalized effective year
+    const obrasByYear = new Map<string, IObra[]>();
+
+    for (const obra of rawObras) {
+      let year = String(obra.anio || '').trim();
+      if (!year || year === 'undefined' || year === 'null') {
+        const ts = this.parseDateToTimestamp(obra.fechaAsignacion || (obra as any).createdAt);
+        if (ts > 0) {
+          year = new Date(ts).getFullYear().toString();
+        } else {
+          year = new Date().getFullYear().toString();
+        }
+      }
+
+      const list = obrasByYear.get(year) || [];
+      list.push({ ...obra, anio: year });
+      obrasByYear.set(year, list);
+    }
+
+    for (const [year, obrasInYear] of obrasByYear.entries()) {
+      const assigned: IObra[] = [];
+      const unassigned: IObra[] = [];
+
+      for (const o of obrasInYear) {
+        if (this.isObraAsignada(o)) {
+          assigned.push(o);
+        } else {
+          unassigned.push(o);
+        }
+      }
+
+      // 1. Unassigned obras must NOT have an oficioConsecutivo, and must have clean rd in DB
+      for (const u of unassigned) {
+        const cleanSk = (u.sk || u.solicitudPo || '').startsWith('obra#')
+          ? (u.sk || u.solicitudPo || '')
+          : `obra#${u.sk || u.solicitudPo}`;
+
+        const poblacion = (u.poblacion || '').trim();
+        const nombre = (u.nombreSolicitante || '').trim();
+        let desiredRd = [poblacion, nombre].filter(Boolean).join(' ');
+        if (!desiredRd && u.rd) {
+          desiredRd = u.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        }
+
+        let needsSave = false;
+        const toSave = { ...u, pk, sk: cleanSk };
+
+        if (u.oficioConsecutivo != null) {
+          delete u.oficioConsecutivo;
+          delete toSave.oficioConsecutivo;
+          needsSave = true;
+        }
+
+        if (desiredRd && u.rd !== desiredRd) {
+          u.rd = desiredRd;
+          toSave.rd = desiredRd;
+          needsSave = true;
+        }
+
+        if (needsSave) {
+          try {
+            await this.obraRepository.obraUpdate(toSave);
+            this.logger.log(`[CONSECUTIVO] Updated unassigned obra=${cleanSk} (rd='${desiredRd}')`);
+          } catch (err) {
+            this.logger.error(`[CONSECUTIVO] Failed to update unassigned obra ${cleanSk}:`, err);
+          }
+        }
+        resultObras.push(u);
+      }
+
+      // 2. Assigned obras must be sorted chronologically and updated with valid oficioConsecutivo and clean rd
+      assigned.sort((a, b) => {
+        const dateStrA = a.fechaAsignacion || (a as any).createdAt || '';
+        const dateStrB = b.fechaAsignacion || (b as any).createdAt || '';
+        const timeA = this.parseDateToTimestamp(dateStrA);
+        const timeB = this.parseDateToTimestamp(dateStrB);
+
+        if (timeA !== timeB) {
+          return timeA - timeB;
+        }
+
+        // Secondary tie-breaker for identical dates: compare solicitudPo / sk deterministically
+        const skA = (a.solicitudPo || a.sk || '').toString();
+        const skB = (b.solicitudPo || b.sk || '').toString();
+        return skA.localeCompare(skB);
+      });
+
+      let nextSeq = 1;
+      for (const a of assigned) {
+        const currentConsecutivo = Number(a.oficioConsecutivo);
+        const desiredConsecutivo = nextSeq++;
+
+        const poblacion = (a.poblacion || '').trim();
+        const nombre = (a.nombreSolicitante || '').trim();
+        let desiredRd = [poblacion, nombre].filter(Boolean).join(' ');
+        if (!desiredRd && a.rd) {
+          desiredRd = a.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        }
+
+        const needsUpdate =
+          currentConsecutivo !== desiredConsecutivo ||
+          a.anio !== year ||
+          (desiredRd && a.rd !== desiredRd);
+
+        a.oficioConsecutivo = desiredConsecutivo;
+        a.anio = year;
+        if (desiredRd) {
+          a.rd = desiredRd;
+        }
+
+        if (needsUpdate) {
+          const cleanSk = (a.sk || a.solicitudPo || '').startsWith('obra#')
+            ? (a.sk || a.solicitudPo || '')
+            : `obra#${a.sk || a.solicitudPo}`;
+          const toSave: IObra = {
+            ...a,
+            pk,
+            sk: cleanSk,
+            anio: year,
+            rd: desiredRd || a.rd || '',
+            oficioConsecutivo: desiredConsecutivo,
+          };
+          try {
+            await this.obraRepository.obraUpdate(toSave);
+            this.logger.log(
+              `[CONSECUTIVO] Resequenced obra=${cleanSk} -> oficioConsecutivo=${desiredConsecutivo} (rd='${desiredRd}')`
+            );
+          } catch (err) {
+            this.logger.error(`[CONSECUTIVO] Failed to resequence obra ${cleanSk}:`, err);
+          }
+        }
+
+        resultObras.push(a);
+      }
+    }
+
+    return resultObras;
+  }
+
+  /**
+   * Directly updates all existing Obra entities in DynamoDB database,
+   * setting rd = (Población + " " + NombreSolicitante) without deleting any records.
+   */
+  public async fixDatabaseRd(pk: string): Promise<{ total: number; updated: number }> {
+    const rawObras = await this.obraRepository.obraListAll(pk);
+    let updatedCount = 0;
+
+    for (const obra of rawObras) {
+      const cleanSk = (obra.sk || obra.solicitudPo || '').startsWith('obra#')
+        ? (obra.sk || obra.solicitudPo || '')
+        : `obra#${obra.sk || obra.solicitudPo}`;
+
+      const poblacion = (obra.poblacion || '').trim();
+      const nombre = (obra.nombreSolicitante || '').trim();
+      let desiredRd = [poblacion, nombre].filter(Boolean).join(' ');
+      if (!desiredRd && obra.rd) {
+        desiredRd = obra.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      }
+
+      if (desiredRd && obra.rd !== desiredRd) {
+        const toSave: IObra = {
+          ...obra,
+          pk,
+          sk: cleanSk,
+          rd: desiredRd,
+        };
+        try {
+          await this.obraRepository.obraUpdate(toSave);
+          updatedCount++;
+          this.logger.log(`[DB FIX RD] Updated DB item ${cleanSk}: '${obra.rd}' -> '${desiredRd}'`);
+        } catch (err) {
+          this.logger.error(`[DB FIX RD] Failed to update item ${cleanSk}:`, err);
+        }
+      }
+    }
+
+    return { total: rawObras.length, updated: updatedCount };
+  }
+
+  /**
+   * Audit consecutive numbers for all obras per year.
+   * Identifies duplicates, missing numbers (faltantes), and unassigned obras with numbers.
+   */
+  public async auditConsecutivos(pk: string): Promise<{
+    totalObras: number;
+    assignedCount: number;
+    unassignedCount: number;
+    unassignedWithConsecutivo: string[];
+    yearReport: Array<{
+      year: string;
+      totalAssigned: number;
+      minConsecutivo: number | null;
+      maxConsecutivo: number | null;
+      duplicates: number[];
+      missing: number[];
+      isClean: boolean;
+    }>;
+  }> {
+    const rawObras = await this.obraRepository.obraListAll(pk);
+    const unassignedWithConsecutivo: string[] = [];
+    const assignedByYear = new Map<string, IObra[]>();
+
+    let unassignedCount = 0;
+
+    for (const obra of rawObras) {
+      if (!this.isObraAsignada(obra)) {
+        unassignedCount++;
+        if (obra.oficioConsecutivo != null) {
+          unassignedWithConsecutivo.push(obra.sk || obra.solicitudPo || '');
+        }
+      } else {
+        let year = String(obra.anio || '').trim();
+        if (!year || year === 'undefined' || year === 'null') {
+          const ts = this.parseDateToTimestamp(obra.fechaAsignacion || (obra as any).createdAt);
+          year = ts > 0 ? new Date(ts).getFullYear().toString() : new Date().getFullYear().toString();
+        }
+        const list = assignedByYear.get(year) || [];
+        list.push(obra);
+        assignedByYear.set(year, list);
+      }
+    }
+
+    const yearReport: Array<{
+      year: string;
+      totalAssigned: number;
+      minConsecutivo: number | null;
+      maxConsecutivo: number | null;
+      duplicates: number[];
+      missing: number[];
+      isClean: boolean;
+    }> = [];
+
+    for (const [year, obras] of assignedByYear.entries()) {
+      const consecs = obras
+        .map((o) => Number(o.oficioConsecutivo))
+        .filter((n) => !isNaN(n) && n > 0);
+
+      const counts = new Map<number, number>();
+      for (const c of consecs) {
+        counts.set(c, (counts.get(c) || 0) + 1);
+      }
+
+      const duplicates: number[] = [];
+      for (const [num, count] of counts.entries()) {
+        if (count > 1) {
+          duplicates.push(num);
+        }
+      }
+      duplicates.sort((a, b) => a - b);
+
+      const minConsecutivo = consecs.length > 0 ? Math.min(...consecs) : null;
+      const maxConsecutivo = consecs.length > 0 ? Math.max(...consecs) : null;
+
+      const missing: number[] = [];
+      if (maxConsecutivo !== null && maxConsecutivo > 0) {
+        for (let i = 1; i <= maxConsecutivo; i++) {
+          if (!counts.has(i)) {
+            missing.push(i);
+          }
+        }
+      }
+
+      const isClean =
+        duplicates.length === 0 &&
+        missing.length === 0 &&
+        minConsecutivo === 1 &&
+        maxConsecutivo === obras.length;
+
+      yearReport.push({
+        year,
+        totalAssigned: obras.length,
+        minConsecutivo,
+        maxConsecutivo,
+        duplicates,
+        missing,
+        isClean,
+      });
+    }
+
+    yearReport.sort((a, b) => b.year.localeCompare(a.year));
+
+    return {
+      totalObras: rawObras.length,
+      assignedCount: rawObras.length - unassignedCount,
+      unassignedCount,
+      unassignedWithConsecutivo,
+      yearReport,
+    };
+  }
+
+  /**
+   * Centralized helper to ensure an assigned Obra has a persistent, unique oficioConsecutivo.
+   * If the Obra is not assigned, returns null without generating a consecutive number.
+   */
+  public async ensureOficioConsecutivo(pk: string, obra: IObra): Promise<number | null> {
+    if (!this.isObraAsignada(obra)) {
+      return null;
+    }
+
+    const allFixed = await this.resequenceAndFixConsecutivos(pk);
+    const targetSk = (obra.sk || obra.solicitudPo || '').replace(/^obra#/, '');
+    const found = allFixed.find(
+      (o) => (o.sk || o.solicitudPo || '').replace(/^obra#/, '') === targetSk
+    );
+
+    if (found && found.oficioConsecutivo) {
+      return Number(found.oficioConsecutivo);
+    }
+
+    return null;
+  }
+
+  /** Get Oficio de Asignación dynamic metadata with persistent consecutive numbering */
+  public async getOficioAsignacion(pk: string, id: string): Promise<any> {
+    const cleanId = decodeURIComponent(id);
+    const keys: IGeneric = { pk, sk: cleanId.startsWith('obra#') ? cleanId : `obra#${cleanId}` };
+    const obra = await this.obraRepository.obraDetail(keys);
+
+    if (!obra) {
+      throw new BadRequestException(`No se encontró la obra con ID: ${cleanId}`);
+    }
+
+    if (!this.isObraAsignada(obra)) {
+      throw new BadRequestException(
+        `No se puede generar el oficio de asignación para la obra "${obra.at || cleanId}" porque aún no ha sido asignada. Por favor asigne la obra primero en el módulo de Obras.`
+      );
+    }
+
+    const consecutivoNum = await this.ensureOficioConsecutivo(pk, obra);
+    const padding = String(consecutivoNum || 0).padStart(4, '0');
+    const year = obra.anio || new Date().getFullYear().toString();
+    const numeroOficio = `CONS. ZONA -${padding}/${year}`;
 
     return {
       ...obra,
+      anio: year,
+      oficioConsecutivo: consecutivoNum,
       numeroOficio,
     };
   }
@@ -1137,7 +1545,11 @@ export class ObraService {
     ) {
       return 'TERMINADA';
     }
-    if (obra.contrato && obra.contrato.trim() !== '') {
+    if (
+      (obra.contrato && obra.contrato.trim() !== '') ||
+      (obra.contratista && obra.contratista.trim() !== '') ||
+      (obra.fechaAsignacion && obra.fechaAsignacion.trim() !== '')
+    ) {
       return 'ASIGNADA';
     }
     return 'PENDIENTE';
