@@ -114,10 +114,8 @@ export default function ReusableTable<T extends Record<string, any>>({
       } else {
         colors.push('VERDE'); // INVENTARIO
       }
-    } else if (hasFechaTerminoCampo || hasFechaTerminoConstruccion || row.estatus === 'TERMINADA') {
-      colors.push('AZUL'); // CONCILIAR
     } else {
-      colors.push('AZUL'); // CONCILIAR
+      colors.push('NARANJA'); // CONCILIAR
     }
 
     // 2. POR VENCER badge colors
@@ -130,8 +128,10 @@ export default function ReusableTable<T extends Record<string, any>>({
       const days = row.diasParaVencerse;
       if (days >= 0 && days <= 3) {
         if (!colors.includes('ROJO')) colors.push('ROJO');
-      } else {
-        if (!colors.includes('AZUL')) colors.push('AZUL');
+      } else if (days >= 4 && days <= 10) {
+        if (!colors.includes('NARANJA')) colors.push('NARANJA');
+      } else if (days >= 11) {
+        if (!colors.includes('VERDE')) colors.push('VERDE');
       }
     }
 
@@ -140,6 +140,8 @@ export default function ReusableTable<T extends Record<string, any>>({
       const d = row.diasSinCapitalizar;
       if (d >= 17) {
         if (!colors.includes('ROJO')) colors.push('ROJO');
+      } else if (d >= 11) {
+        if (!colors.includes('NARANJA')) colors.push('NARANJA');
       } else {
         if (!colors.includes('VERDE')) colors.push('VERDE');
       }
@@ -180,7 +182,10 @@ export default function ReusableTable<T extends Record<string, any>>({
     // 4. Color Filter
     if (selectedColors.length > 0 && !selectedColors.includes('TODOS')) {
       const rowColors = getRowColors(row);
-      const matches = selectedColors.some((c) => rowColors.includes(c));
+      const matches = selectedColors.some((c) => 
+        rowColors.includes(c) || 
+        (c === 'NARANJA' && (rowColors.includes('AMARILLO') || rowColors.includes('AZUL') || rowColors.includes('NARANJA')))
+      );
       if (!matches) return false;
     }
     // 5. Search Text Filter
@@ -335,7 +340,7 @@ export default function ReusableTable<T extends Record<string, any>>({
               </Box>
             )}
 
-            {/* Color Filter Dropdown: VERDES (INVENTARIO), ROJAS (CAPITALIZAR), AZULES (CONCILIAR) */}
+            {/* Color Filter Dropdown: VERDES (INVENTARIO), ROJAS (CAPITALIZAR), NARANJAS (CONCILIAR) */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
               <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                 Color:
@@ -359,14 +364,14 @@ export default function ReusableTable<T extends Record<string, any>>({
                   return selected.map(c => {
                     if (c === 'VERDE') return '🟢 VERDE (INVENTARIO)';
                     if (c === 'ROJO') return '🔴 ROJO (CAPITALIZAR)';
-                    if (c === 'AZUL') return '🔵 AZUL (CONCILIAR)';
+                    if (c === 'NARANJA' || c === 'AZUL' || c === 'AMARILLO') return '🟠 NARANJA (CONCILIAR)';
                     return c;
                   }).join(', ');
                 }}
                 sx={{
                   height: 36,
-                  minWidth: { xs: 110, sm: 155 },
-                  maxWidth: { xs: 180, sm: 240 },
+                  minWidth: { xs: 110, sm: 165 },
+                  maxWidth: { xs: 180, sm: 250 },
                   fontSize: '0.8rem',
                   borderRadius: '8px',
                   backgroundColor: '#ffffff',
@@ -381,8 +386,8 @@ export default function ReusableTable<T extends Record<string, any>>({
                 <MenuItem value="ROJO" sx={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: selectedColors.includes('ROJO') ? 800 : 400 }}>
                   🔴 ROJO (CAPITALIZAR)
                 </MenuItem>
-                <MenuItem value="AZUL" sx={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: selectedColors.includes('AZUL') ? 800 : 400 }}>
-                  🔵 AZUL (CONCILIAR)
+                <MenuItem value="NARANJA" sx={{ fontSize: '0.8rem', color: '#ea580c', fontWeight: selectedColors.includes('NARANJA') ? 800 : 400 }}>
+                  🟠 NARANJA (CONCILIAR)
                 </MenuItem>
               </Select>
             </Box>
