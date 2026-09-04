@@ -14,8 +14,11 @@ import {
   Typography,
   Select,
   MenuItem,
+  Button,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 export interface Column<T> {
   key: keyof T;
@@ -47,6 +50,12 @@ export default function ReusableTable<T extends Record<string, any>>({
   const [orderDir, setOrderDir] = useState<'asc' | 'desc'>(defaultOrderDir || 'asc');
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
+  // Show/Hide Días columns state
+  const [showDias, setShowDias] = useState<boolean>(true);
+
+  // Multi-color filter state
+  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+
   // Auto-scroll table container to bottom on load so smaller-day items are displayed first
   useEffect(() => {
     if (tableContainerRef.current && rows.length > 0) {
@@ -67,6 +76,87 @@ export default function ReusableTable<T extends Record<string, any>>({
   const [statusFilter, setStatusFilter] = useState<string>('TODOS');
   const [tipoObraFilter, setTipoObraFilter] = useState<string>('TODOS');
   const [anioFilter, setAnioFilter] = useState<string>('TODOS');
+
+  // Helper to identify Días columns
+  const isDiasColumn = (col: Column<T>) => {
+    const keyStr = String(col.key).toLowerCase();
+    const labelStr = String(col.label || '').toLowerCase();
+    return (
+      keyStr.includes('dias') ||
+      labelStr.includes('días') ||
+      labelStr.includes('dias') ||
+      labelStr.includes('vencer')
+    );
+  };
+
+  const visibleColumns = React.useMemo(() => {
+    if (showDias) return columns;
+    return columns.filter((col) => !isDiasColumn(col));
+  }, [columns, showDias]);
+
+  const hasDiasColumn = React.useMemo(() => {
+    return columns.some((col) => isDiasColumn(col));
+  }, [columns]);
+
+  // Helper to classify row color(s)
+  const getRowColors = (row: any): string[] => {
+    const colors: string[] = [];
+    const hasFechaTerminoCampo = !!(row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '');
+    const hasFechaTerminoConstruccion = !!(
+      (row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '') ||
+      (row.fechaTermino && String(row.fechaTermino).trim() !== '')
+    );
+
+    // 1. Row background class logic
+    if (row.estatus === 'CAPITALIZADA') {
+      if (!hasFechaTerminoCampo) {
+        colors.push('ROJO');
+      } else {
+        colors.push('VERDE');
+      }
+    } else if (hasFechaTerminoCampo) {
+      colors.push('AZUL');
+    } else if (hasFechaTerminoConstruccion && !hasFechaTerminoCampo) {
+      colors.push('AMARILLO');
+    } else if (row.estatus === 'PENDIENTE' || row.estatus === 'ASIGNADA') {
+      colors.push('BLANCO');
+    }
+
+    // 2. POR VENCER badge colors
+    if (
+      typeof row.diasParaVencerse === 'number' &&
+      !hasFechaTerminoCampo &&
+      row.estatus !== 'CAPITALIZADA' &&
+      row.estatus !== 'TERMINADA'
+    ) {
+      const days = row.diasParaVencerse;
+      if (days >= 0 && days <= 3) {
+        if (!colors.includes('ROJO')) colors.push('ROJO');
+      } else if (days >= 4 && days <= 10) {
+        if (!colors.includes('AMARILLO')) colors.push('AMARILLO');
+      } else if (days >= 11) {
+        if (!colors.includes('VERDE')) colors.push('VERDE');
+      }
+    }
+
+    // 3. diasSinCapitalizar badge colors
+    if (typeof row.diasSinCapitalizar === 'number') {
+      const d = row.diasSinCapitalizar;
+      if (d >= 17) {
+        if (!colors.includes('ROJO')) colors.push('ROJO');
+      } else if (d >= 11) {
+        if (!colors.includes('AMARILLO')) colors.push('AMARILLO');
+      } else {
+        if (!colors.includes('VERDE')) colors.push('VERDE');
+      }
+    }
+
+    if (colors.length === 0) {
+      colors.push('BLANCO');
+    }
+
+    return colors;
+  };
 
   // Compute unique values for dropdowns
   const tipoObraOptions = React.useMemo(() => {
@@ -97,8 +187,14 @@ export default function ReusableTable<T extends Record<string, any>>({
     if (hasAnioColumn && anioFilter !== 'TODOS') {
       if (String(row.anio || '').trim() !== anioFilter) return false;
     }
-    // 4. Search Text Filter
-    return columns.some((col) =>
+    // 4. Color Filter
+    if (selectedColors.length > 0 && !selectedColors.includes('TODOS')) {
+      const rowColors = getRowColors(row);
+      const matches = selectedColors.some((c) => rowColors.includes(c));
+      if (!matches) return false;
+    }
+    // 5. Search Text Filter
+    return visibleColumns.some((col) =>
       String(row[col.key] ?? '')
         .toLowerCase()
         .includes(search.toLowerCase()),
@@ -130,7 +226,7 @@ export default function ReusableTable<T extends Record<string, any>>({
   return (
     <Paper className="card" sx={{ p: { xs: 1.5, sm: 2.5 }, width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
       {/* Toolbar: Search input + Multi-Dropdown Filters (Responsive Layout) */}
-      {(searchable || hasStatusColumn || hasTipoObraColumn || hasAnioColumn) && (
+      {(searchable || hasStatusColumn || hasTipoObraColumn || hasAnioColumn || hasDiasColumn) && (
         <Box
           sx={{
             display: 'flex',
@@ -156,7 +252,7 @@ export default function ReusableTable<T extends Record<string, any>>({
                     </InputAdornment>
                   ),
                 }}
-                sx={{ maxWidth: { xs: '100%', md: 280 } }}
+                sx={{ maxWidth: { xs: '100%', md: 260 } }}
               />
             </Box>
           )}
@@ -182,7 +278,7 @@ export default function ReusableTable<T extends Record<string, any>>({
                   onChange={(e) => setStatusFilter(e.target.value)}
                   sx={{
                     height: 36,
-                    minWidth: { xs: 100, sm: 130 },
+                    minWidth: { xs: 95, sm: 120 },
                     fontSize: '0.8rem',
                     borderRadius: '8px',
                     backgroundColor: '#ffffff',
@@ -209,7 +305,7 @@ export default function ReusableTable<T extends Record<string, any>>({
                   onChange={(e) => setTipoObraFilter(e.target.value)}
                   sx={{
                     height: 36,
-                    minWidth: { xs: 90, sm: 110 },
+                    minWidth: { xs: 85, sm: 105 },
                     fontSize: '0.8rem',
                     borderRadius: '8px',
                     backgroundColor: '#ffffff',
@@ -235,7 +331,7 @@ export default function ReusableTable<T extends Record<string, any>>({
                   onChange={(e) => setAnioFilter(e.target.value)}
                   sx={{
                     height: 36,
-                    minWidth: { xs: 80, sm: 95 },
+                    minWidth: { xs: 75, sm: 90 },
                     fontSize: '0.8rem',
                     borderRadius: '8px',
                     backgroundColor: '#ffffff',
@@ -247,6 +343,95 @@ export default function ReusableTable<T extends Record<string, any>>({
                   ))}
                 </Select>
               </Box>
+            )}
+
+            {/* Color Filter Dropdown */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
+              <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+                Color:
+              </Typography>
+              <Select
+                multiple
+                size="small"
+                fullWidth
+                value={selectedColors.length === 0 ? ['TODOS'] : selectedColors}
+                onChange={(e) => {
+                  const val = typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]);
+                  if (val.includes('TODOS') && !selectedColors.includes('TODOS') && val.length > 1) {
+                    setSelectedColors(['TODOS']);
+                  } else {
+                    const clean = val.filter((v) => v !== 'TODOS');
+                    setSelectedColors(clean.length === 0 ? ['TODOS'] : clean);
+                  }
+                }}
+                renderValue={(selected) => {
+                  if (selected.includes('TODOS') || selected.length === 0) return 'TODOS';
+                  return selected.map(c => {
+                    if (c === 'VERDE') return '🟢 VERDE';
+                    if (c === 'AZUL') return '🔵 AZUL';
+                    if (c === 'AMARILLO') return '🟡 AMARILLO';
+                    if (c === 'ROJO') return '🔴 ROJO';
+                    if (c === 'BLANCO') return '⚪ BLANCO';
+                    return c;
+                  }).join(', ');
+                }}
+                sx={{
+                  height: 36,
+                  minWidth: { xs: 110, sm: 135 },
+                  maxWidth: { xs: 170, sm: 220 },
+                  fontSize: '0.8rem',
+                  borderRadius: '8px',
+                  backgroundColor: '#ffffff',
+                }}
+              >
+                <MenuItem value="TODOS" sx={{ fontSize: '0.8rem', fontWeight: selectedColors.includes('TODOS') || selectedColors.length === 0 ? 800 : 400 }}>
+                  TODOS
+                </MenuItem>
+                <MenuItem value="VERDE" sx={{ fontSize: '0.8rem', color: '#15803d', fontWeight: selectedColors.includes('VERDE') ? 800 : 400 }}>
+                  🟢 VERDE (Capitalizada)
+                </MenuItem>
+                <MenuItem value="AZUL" sx={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: selectedColors.includes('AZUL') ? 800 : 400 }}>
+                  🔵 AZUL (Terminada Campo)
+                </MenuItem>
+                <MenuItem value="AMARILLO" sx={{ fontSize: '0.8rem', color: '#d97706', fontWeight: selectedColors.includes('AMARILLO') ? 800 : 400 }}>
+                  🟡 AMARILLO (En Conexión)
+                </MenuItem>
+                <MenuItem value="ROJO" sx={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: selectedColors.includes('ROJO') ? 800 : 400 }}>
+                  🔴 ROJO (Anomalía)
+                </MenuItem>
+                <MenuItem value="BLANCO" sx={{ fontSize: '0.8rem', color: '#475569', fontWeight: selectedColors.includes('BLANCO') ? 800 : 400 }}>
+                  ⚪ BLANCO (Proceso)
+                </MenuItem>
+              </Select>
+            </Box>
+
+            {/* Small button to toggle showing/hiding Días columns */}
+            {hasDiasColumn && (
+              <Button
+                size="small"
+                variant={showDias ? 'contained' : 'outlined'}
+                onClick={() => setShowDias(!showDias)}
+                startIcon={showDias ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                sx={{
+                  height: 36,
+                  px: 1.5,
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  borderRadius: '8px',
+                  whiteSpace: 'nowrap',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.3px',
+                  backgroundColor: showDias ? '#008E60 !important' : '#ffffff !important',
+                  color: showDias ? '#ffffff !important' : '#475569 !important',
+                  borderColor: showDias ? '#008E60 !important' : '#cbd5e1 !important',
+                  boxShadow: 'none !important',
+                  '&:hover': {
+                    backgroundColor: showDias ? '#007650 !important' : '#f8fafc !important',
+                  },
+                }}
+              >
+                {showDias ? 'Días: ON' : 'Días: OFF'}
+              </Button>
             )}
           </Box>
         </Box>
@@ -274,65 +459,65 @@ export default function ReusableTable<T extends Record<string, any>>({
         >
           <TableHead>
             <TableRow>
-              {columns.map((col) => (
-                  <TableCell
-                    key={String(col.key)}
-                    align="center"
-                    sx={{
-                      width: (col as any).width || 'auto',
-                      fontWeight: '800',
-                      fontSize: '0.78rem',
-                      letterSpacing: '0.2px',
-                      backgroundColor: '#f8fafc !important',
-                      color: '#1e293b',
-                      py: 1.1,
-                      px: 0.6,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      textAlign: 'center',
-                      borderBottom: '2px solid #cbd5e1',
-                    }}
+              {visibleColumns.map((col) => (
+                <TableCell
+                  key={String(col.key)}
+                  align="center"
+                  sx={{
+                    width: (col as any).width || 'auto',
+                    fontWeight: '800',
+                    fontSize: '0.78rem',
+                    letterSpacing: '0.2px',
+                    backgroundColor: '#f8fafc !important',
+                    color: '#1e293b',
+                    py: 1.1,
+                    px: 0.6,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    textAlign: 'center',
+                    borderBottom: '2px solid #cbd5e1',
+                  }}
+                >
+                  <TableSortLabel
+                    active={orderBy === col.key}
+                    direction={orderBy === col.key ? orderDir : 'asc'}
+                    onClick={() => handleSort(col.key)}
+                    sx={{ width: '100%', justifyContent: 'center' }}
                   >
-                    <TableSortLabel
-                      active={orderBy === col.key}
-                      direction={orderBy === col.key ? orderDir : 'asc'}
-                      onClick={() => handleSort(col.key)}
-                      sx={{ width: '100%', justifyContent: 'center' }}
-                    >
-                      {col.label}
-                    </TableSortLabel>
-                  </TableCell>
-                ))}
+                    {col.label}
+                  </TableSortLabel>
+                </TableCell>
+              ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {sorted.map((row, idx) => {
-                let className = '';
-                const hasFechaTerminoCampo = !!(row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '');
-                const hasFechaTerminoConstruccion = !!(
-                  (row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '') ||
-                  (row.fechaTermino && String(row.fechaTermino).trim() !== '')
-                );
+              let className = '';
+              const hasFechaTerminoCampo = !!(row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '');
+              const hasFechaTerminoConstruccion = !!(
+                (row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '') ||
+                (row.fechaTermino && String(row.fechaTermino).trim() !== '')
+              );
 
-                if (row.estatus === 'CAPITALIZADA') {
-                  if (!hasFechaTerminoCampo) {
-                    className = 'status-anomaly-red';
-                  } else {
-                    className = 'status-capitalizada';
-                  }
-                } else if (hasFechaTerminoCampo) {
-                  className = 'status-terminada';
-                } else if (hasFechaTerminoConstruccion && !hasFechaTerminoCampo) {
-                  className = 'status-conexion-yellow';
-                } else if (row.estatus === 'PENDIENTE') {
-                  className = 'status-pendiente';
-                } else if (row.estatus === 'ASIGNADA') {
-                  className = 'status-asignada';
+              if (row.estatus === 'CAPITALIZADA') {
+                if (!hasFechaTerminoCampo) {
+                  className = 'status-anomaly-red';
+                } else {
+                  className = 'status-capitalizada';
                 }
+              } else if (hasFechaTerminoCampo) {
+                className = 'status-terminada';
+              } else if (hasFechaTerminoConstruccion && !hasFechaTerminoCampo) {
+                className = 'status-conexion-yellow';
+              } else if (row.estatus === 'PENDIENTE') {
+                className = 'status-pendiente';
+              } else if (row.estatus === 'ASIGNADA') {
+                className = 'status-asignada';
+              }
               return (
                 <TableRow key={idx} hover className={className}>
-                  {columns.map((col) => {
+                  {visibleColumns.map((col) => {
                     const alignment = col.align || 'center';
                     return (
                       <TableCell
@@ -357,7 +542,7 @@ export default function ReusableTable<T extends Record<string, any>>({
             })}
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={columns.length} align="center" sx={{ py: 4, color: 'var(--color-text-light)' }}>
+                <TableCell colSpan={visibleColumns.length} align="center" sx={{ py: 4, color: 'var(--color-text-light)' }}>
                   No se encontraron registros.
                 </TableCell>
               </TableRow>
@@ -365,7 +550,7 @@ export default function ReusableTable<T extends Record<string, any>>({
           </TableBody>
         </Table>
       </TableContainer>
-      
+
       {/* Small count indicator at the bottom */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5, pr: 1 }}>
         <Typography variant="caption" sx={{ color: 'var(--color-text-light)', fontWeight: 600 }}>
@@ -375,3 +560,4 @@ export default function ReusableTable<T extends Record<string, any>>({
     </Paper>
   );
 }
+

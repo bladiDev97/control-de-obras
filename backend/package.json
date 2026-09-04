@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "node seed_db.js",
     "sync-remote": "node sync_remote_to_local.js",
-    "update-rd": "node update_rd_in_db.js"
+    "update-rd": "node update_rd_in_db.js",
+    "update-rd:aws": "node update_rd_in_db.js --aws"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.788.0",

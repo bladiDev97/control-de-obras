@@ -6,25 +6,36 @@ const {
 const { unmarshall, marshall } = require('@aws-sdk/util-dynamodb');
 const dotenv = require('dotenv');
 
-dotenv.config();
+const isAws = process.argv.includes('--aws') || process.env.TARGET_ENV === 'aws';
 
-const endpoint = process.env.DYNAMO_ENDPOINT || process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
+if (isAws) {
+  delete process.env.AWS_ACCESS_KEY_ID;
+  delete process.env.AWS_SECRET_ACCESS_KEY;
+  delete process.env.DYNAMO_ACCESS_KEY;
+  delete process.env.DYNAMO_SECRET_KEY;
+  delete process.env.DYNAMO_ENDPOINT;
+  delete process.env.DYNAMODB_ENDPOINT;
+}
+
 const tableName = process.env.DYNAMO_TABLE_NAME || process.env.DYNAMODB_TABLE_NAME || 'ControlDeObras';
 const region = process.env.DYNAMO_REGION || process.env.AWS_REGION || 'us-east-1';
 
 const clientConfig = { region };
-if (endpoint && endpoint.trim() !== '') {
-  clientConfig.endpoint = endpoint;
-  clientConfig.credentials = {
-    accessKeyId: process.env.DYNAMO_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID || 'local',
-    secretAccessKey: process.env.DYNAMO_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY || 'local'
-  };
+if (!isAws) {
+  const endpoint = process.env.DYNAMO_ENDPOINT || process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
+  if (endpoint && endpoint.trim() !== '') {
+    clientConfig.endpoint = endpoint;
+    clientConfig.credentials = {
+      accessKeyId: process.env.DYNAMO_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID || 'local',
+      secretAccessKey: process.env.DYNAMO_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY || 'local'
+    };
+  }
 }
 
 const client = new DynamoDBClient(clientConfig);
 
 async function runUpdateQuery() {
-  console.log(`🚀 Ejecutando script de actualización de RD en DynamoDB (${tableName} @ ${endpoint || 'AWS Cloud'})...\n`);
+  console.log(`🚀 Ejecutando script de actualización de RD en DynamoDB (${tableName} @ ${isAws ? 'AWS Cloud' : (clientConfig.endpoint || 'Local')})...\n`);
 
   let lastEvaluatedKey;
   let totalScanned = 0;
