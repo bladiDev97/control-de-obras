@@ -103,30 +103,15 @@ export default function ReusableTable<T extends Record<string, any>>({
     const colors: string[] = [];
     const hasFechaTerminoCampo = !!(row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '');
 
-    // 1. If diasSinCapitalizar is present, use exact 12-20 range mapping:
-    // - ROJO: > 20 días (21+)
-    // - NARANJA: 12 a 20 días (Conciliar)
-    // - VERDE: <= 11 días
-    if (typeof row.diasSinCapitalizar === 'number') {
-      const d = row.diasSinCapitalizar;
-      if (d > 20) {
-        colors.push('ROJO');
-      } else if (d >= 12) {
-        colors.push('NARANJA');
+    // 1. Row background class logic based strictly on status/field end date
+    if (row.estatus === 'CAPITALIZADA') {
+      if (!hasFechaTerminoCampo) {
+        colors.push('ROJO'); // CAPITALIZAR (Anomalía)
       } else {
-        colors.push('VERDE');
+        colors.push('VERDE'); // INVENTARIO
       }
     } else {
-      // Standard status fallback
-      if (row.estatus === 'CAPITALIZADA') {
-        if (!hasFechaTerminoCampo) {
-          colors.push('ROJO'); // CAPITALIZAR (Anomalía)
-        } else {
-          colors.push('VERDE'); // INVENTARIO
-        }
-      } else {
-        colors.push('NARANJA'); // CONCILIAR
-      }
+      colors.push('NARANJA'); // CONCILIAR
     }
 
     // 2. POR VENCER badge colors if applicable
@@ -142,6 +127,18 @@ export default function ReusableTable<T extends Record<string, any>>({
       } else if (days >= 4 && days <= 10) {
         if (!colors.includes('NARANJA')) colors.push('NARANJA');
       } else if (days >= 11) {
+        if (!colors.includes('VERDE')) colors.push('VERDE');
+      }
+    }
+
+    // 3. diasSinCapitalizar badge colors
+    if (typeof row.diasSinCapitalizar === 'number') {
+      const d = row.diasSinCapitalizar;
+      if (d >= 17) {
+        if (!colors.includes('ROJO')) colors.push('ROJO');
+      } else if (d >= 11) {
+        if (!colors.includes('NARANJA')) colors.push('NARANJA');
+      } else {
         if (!colors.includes('VERDE')) colors.push('VERDE');
       }
     }
@@ -494,16 +491,7 @@ export default function ReusableTable<T extends Record<string, any>>({
                 (row.fechaTermino && String(row.fechaTermino).trim() !== '')
               );
 
-              if (typeof row.diasSinCapitalizar === 'number') {
-                const d = row.diasSinCapitalizar;
-                if (d > 20) {
-                  className = 'status-anomaly-red';
-                } else if (d >= 12) {
-                  className = 'status-terminada';
-                } else {
-                  className = 'status-conexion-yellow';
-                }
-              } else if (row.estatus === 'CAPITALIZADA') {
+              if (row.estatus === 'CAPITALIZADA') {
                 if (!hasFechaTerminoCampo) {
                   className = 'status-anomaly-red';
                 } else {
