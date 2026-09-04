@@ -386,7 +386,7 @@ export default function ReusableTable<T extends Record<string, any>>({
                 <MenuItem value="ROJO" sx={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: selectedColors.includes('ROJO') ? 800 : 400 }}>
                   🔴 ROJO (CAPITALIZAR)
                 </MenuItem>
-                <MenuItem value="NARANJA" sx={{ fontSize: '0.8rem', color: '#ea580c', fontWeight: selectedColors.includes('NARANJA') ? 800 : 400 }}>
+                <MenuItem value="NARANJA" sx={{ fontSize: '0.8rem', color: '#EE6C00', fontWeight: selectedColors.includes('NARANJA') ? 800 : 400 }}>
                   🟠 NARANJA (CONCILIAR)
                 </MenuItem>
               </Select>
