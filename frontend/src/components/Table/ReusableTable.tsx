@@ -387,34 +387,31 @@ export default function ReusableTable<T extends Record<string, any>>({
               </Select>
             </Box>
 
-            {/* Clearly visible discreet button to toggle showing/hiding Días columns */}
-            {hasDiasColumn && (
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => setShowDias(!showDias)}
-                startIcon={showDias ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                sx={{
-                  height: 34,
-                  px: 1.5,
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  borderRadius: '8px',
-                  whiteSpace: 'nowrap',
-                  textTransform: 'none',
-                  backgroundColor: showDias ? '#f1f5f9 !important' : '#ffffff !important',
-                  color: showDias ? '#1e293b !important' : '#64748b !important',
-                  borderColor: '#cbd5e1 !important',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.05) !important',
-                  '&:hover': {
-                    backgroundColor: '#e2e8f0 !important',
-                    borderColor: '#94a3b8 !important',
-                  },
-                }}
-              >
-                {showDias ? '📅 Días: Visibles' : '🙈 Días: Ocultos'}
-              </Button>
-            )}
+            {/* Always visible button to toggle showing/hiding Días columns */}
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setShowDias(!showDias)}
+              startIcon={showDias ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+              sx={{
+                height: 36,
+                px: 1.5,
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                borderRadius: '8px',
+                whiteSpace: 'nowrap',
+                textTransform: 'none',
+                backgroundColor: showDias ? '#eef6f3 !important' : '#ffffff !important',
+                color: showDias ? '#008E60 !important' : '#64748b !important',
+                borderColor: showDias ? '#008E60 !important' : '#cbd5e1 !important',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.08) !important',
+                '&:hover': {
+                  backgroundColor: '#e2e8f0 !important',
+                },
+              }}
+            >
+              {showDias ? '📅 Días: Visibles' : '🙈 Días: Ocultos'}
+            </Button>
           </Box>
         </Box>
       )}

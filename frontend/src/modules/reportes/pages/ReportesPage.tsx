@@ -555,6 +555,12 @@ export default function ReportesPage() {
       }
     },
     {
+      key: 'dias' as any,
+      label: 'DÍAS',
+      width: '7%',
+      render: (row: any) => typeof row.dias === 'number' ? row.dias : (row.diasSinCapitalizar || 0),
+    },
+    {
       key: 'id',
       label: 'Acciones',
       render: (row: Obra) => {
