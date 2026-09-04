@@ -163,6 +163,12 @@ export class ObraService {
   /** Create an Obra */
   public async create(pk: string, dto: ObrasCreateDto): Promise<IObra> {
     const id = dto.solicitudPo || `OB-${Date.now()}`;
+    const cleanPoblacion = (dto.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+    const cleanRd = (dto.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+    const poblacionToUse = cleanPoblacion || cleanRd;
+    const nombre = (dto.nombreSolicitante || '').trim();
+    const calculatedRd = [poblacionToUse, nombre].filter(Boolean).join(' ') || cleanRd || dto.rd || '';
+
     const obraData: IObra = {
       pk,
       sk: id,
@@ -171,7 +177,8 @@ export class ObraService {
       at: dto.at,
       obra: dto.obra,
       tipoObra: dto.tipoObra,
-      rd: dto.rd,
+      poblacion: cleanPoblacion || dto.poblacion,
+      rd: calculatedRd,
       nombreSolicitante: dto.nombreSolicitante,
       orden: dto.orden,
       activo: dto.activo,
@@ -211,6 +218,15 @@ export class ObraService {
       sk,
       solicitudPo: dto.solicitudPo || existing?.solicitudPo,
     };
+
+    const cleanPoblacion = (dto.poblacion || existing?.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+    const cleanRd = (dto.rd || existing?.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+    const poblacionToUse = cleanPoblacion || cleanRd;
+    const nombre = (dto.nombreSolicitante ?? existing?.nombreSolicitante ?? '').trim();
+    const calculatedRd = [poblacionToUse, nombre].filter(Boolean).join(' ') || cleanRd || dto.rd || existing?.rd || '';
+
+    updatedData.rd = calculatedRd;
+    if (cleanPoblacion) updatedData.poblacion = cleanPoblacion;
 
     if (planoPdfPath) {
       updatedData.planoPdf = planoPdfPath;
@@ -278,6 +294,15 @@ export class ObraService {
       pk,
       sk: fullSk,
     } as IObra;
+
+    const cleanPoblacion = (data.poblacion || existing?.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+    const cleanRd = (data.rd || existing?.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+    const poblacionToUse = cleanPoblacion || cleanRd;
+    const nombre = (data.nombreSolicitante ?? existing?.nombreSolicitante ?? '').trim();
+    const calculatedRd = [poblacionToUse, nombre].filter(Boolean).join(' ') || cleanRd || data.rd || existing?.rd || '';
+
+    updatedData.rd = calculatedRd;
+    if (cleanPoblacion) updatedData.poblacion = cleanPoblacion;
 
     if (planoPdfPath) {
       updatedData.planoPdf = planoPdfPath;
