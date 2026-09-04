@@ -114,10 +114,10 @@ export default function ReusableTable<T extends Record<string, any>>({
       } else {
         colors.push('VERDE'); // INVENTARIO
       }
-    } else if (hasFechaTerminoCampo || hasFechaTerminoConstruccion) {
-      colors.push('AMARILLO'); // CONCILIAR
+    } else if (hasFechaTerminoCampo || hasFechaTerminoConstruccion || row.estatus === 'TERMINADA') {
+      colors.push('AZUL'); // CONCILIAR
     } else {
-      colors.push('AMARILLO'); // CONCILIAR
+      colors.push('AZUL'); // CONCILIAR
     }
 
     // 2. POR VENCER badge colors
@@ -130,10 +130,8 @@ export default function ReusableTable<T extends Record<string, any>>({
       const days = row.diasParaVencerse;
       if (days >= 0 && days <= 3) {
         if (!colors.includes('ROJO')) colors.push('ROJO');
-      } else if (days >= 4 && days <= 10) {
-        if (!colors.includes('AMARILLO')) colors.push('AMARILLO');
-      } else if (days >= 11) {
-        if (!colors.includes('VERDE')) colors.push('VERDE');
+      } else {
+        if (!colors.includes('AZUL')) colors.push('AZUL');
       }
     }
 
@@ -142,8 +140,6 @@ export default function ReusableTable<T extends Record<string, any>>({
       const d = row.diasSinCapitalizar;
       if (d >= 17) {
         if (!colors.includes('ROJO')) colors.push('ROJO');
-      } else if (d >= 11) {
-        if (!colors.includes('AMARILLO')) colors.push('AMARILLO');
       } else {
         if (!colors.includes('VERDE')) colors.push('VERDE');
       }
@@ -339,7 +335,7 @@ export default function ReusableTable<T extends Record<string, any>>({
               </Box>
             )}
 
-            {/* Color Filter Dropdown: VERDES (INVENTARIO), ROJAS (CAPITALIZAR), AMARILLAS (CONCILIAR) */}
+            {/* Color Filter Dropdown: VERDES (INVENTARIO), ROJAS (CAPITALIZAR), AZULES (CONCILIAR) */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
               <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                 Color:
@@ -363,7 +359,7 @@ export default function ReusableTable<T extends Record<string, any>>({
                   return selected.map(c => {
                     if (c === 'VERDE') return '🟢 VERDE (INVENTARIO)';
                     if (c === 'ROJO') return '🔴 ROJO (CAPITALIZAR)';
-                    if (c === 'AMARILLO') return '🟡 AMARILLO (CONCILIAR)';
+                    if (c === 'AZUL') return '🔵 AZUL (CONCILIAR)';
                     return c;
                   }).join(', ');
                 }}
@@ -385,39 +381,38 @@ export default function ReusableTable<T extends Record<string, any>>({
                 <MenuItem value="ROJO" sx={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: selectedColors.includes('ROJO') ? 800 : 400 }}>
                   🔴 ROJO (CAPITALIZAR)
                 </MenuItem>
-                <MenuItem value="AMARILLO" sx={{ fontSize: '0.8rem', color: '#d97706', fontWeight: selectedColors.includes('AMARILLO') ? 800 : 400 }}>
-                  🟡 AMARILLO (CONCILIAR)
+                <MenuItem value="AZUL" sx={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: selectedColors.includes('AZUL') ? 800 : 400 }}>
+                  🔵 AZUL (CONCILIAR)
                 </MenuItem>
               </Select>
             </Box>
 
-            {/* Discreet button to toggle showing/hiding Días columns */}
+            {/* Ultra-discreet button to toggle showing/hiding Días columns */}
             {hasDiasColumn && (
               <Button
                 size="small"
-                variant="outlined"
+                variant="text"
                 onClick={() => setShowDias(!showDias)}
-                startIcon={showDias ? <VisibilityIcon sx={{ fontSize: '0.85rem !important' }} /> : <VisibilityOffIcon sx={{ fontSize: '0.85rem !important' }} />}
+                startIcon={showDias ? <VisibilityIcon sx={{ fontSize: '0.8rem !important', opacity: 0.5 }} /> : <VisibilityOffIcon sx={{ fontSize: '0.8rem !important', opacity: 0.3 }} />}
                 sx={{
-                  height: 32,
-                  px: 1.2,
-                  fontSize: '0.70rem',
-                  fontWeight: 700,
-                  borderRadius: '6px',
+                  height: 26,
+                  px: 0.8,
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  borderRadius: '4px',
                   whiteSpace: 'nowrap',
                   textTransform: 'none',
-                  letterSpacing: '0.2px',
-                  backgroundColor: showDias ? '#f1f5f9 !important' : '#ffffff !important',
-                  color: showDias ? '#334155 !important' : '#94a3b8 !important',
-                  borderColor: showDias ? '#cbd5e1 !important' : '#e2e8f0 !important',
-                  boxShadow: 'none !important',
+                  color: '#64748b !important',
+                  backgroundColor: 'transparent !important',
+                  border: 'none !important',
+                  minWidth: 'auto',
                   '&:hover': {
-                    backgroundColor: '#e2e8f0 !important',
-                    borderColor: '#cbd5e1 !important',
+                    backgroundColor: '#f1f5f9 !important',
+                    color: '#1e293b !important',
                   },
                 }}
               >
-                {showDias ? 'Ocultar Días' : 'Mostrar Días'}
+                {showDias ? 'Días: SÍ' : 'Días: NO'}
               </Button>
             )}
           </Box>
