@@ -129,11 +129,20 @@ export default function ReusableTable<T extends Record<string, any>>({
 
   return (
     <Paper className="card" sx={{ p: { xs: 1.5, sm: 2.5 }, width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
-      {/* Toolbar: Search input + Multi-Dropdown Filters */}
+      {/* Toolbar: Search input + Multi-Dropdown Filters (Responsive Layout) */}
       {(searchable || hasStatusColumn || hasTipoObraColumn || hasAnioColumn) && (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '12px', mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justify: 'space-between',
+            gap: { xs: 1.5, sm: 2 },
+            mb: 2.5,
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'stretch', md: 'center' },
+          }}
+        >
           {searchable && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '1 1 200px' }}>
+            <Box sx={{ flex: '1 1 200px' }}>
               <TextField
                 size="small"
                 fullWidth
@@ -147,24 +156,33 @@ export default function ReusableTable<T extends Record<string, any>>({
                     </InputAdornment>
                   ),
                 }}
-                sx={{ maxWidth: 280 }}
+                sx={{ maxWidth: { xs: '100%', md: 280 } }}
               />
             </Box>
           )}
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: { xs: 1, sm: 1.5 },
+              flexWrap: 'wrap',
+              width: { xs: '100%', md: 'auto' },
+            }}
+          >
             {hasStatusColumn && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
+                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                   Estatus:
                 </Typography>
                 <Select
                   size="small"
+                  fullWidth
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   sx={{
                     height: 36,
-                    minWidth: 130,
+                    minWidth: { xs: 100, sm: 130 },
                     fontSize: '0.8rem',
                     borderRadius: '8px',
                     backgroundColor: '#ffffff',
@@ -180,17 +198,18 @@ export default function ReusableTable<T extends Record<string, any>>({
             )}
 
             {hasTipoObraColumn && tipoObraOptions.length > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
+                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                   Tipo:
                 </Typography>
                 <Select
                   size="small"
+                  fullWidth
                   value={tipoObraFilter}
                   onChange={(e) => setTipoObraFilter(e.target.value)}
                   sx={{
                     height: 36,
-                    minWidth: 120,
+                    minWidth: { xs: 90, sm: 110 },
                     fontSize: '0.8rem',
                     borderRadius: '8px',
                     backgroundColor: '#ffffff',
@@ -205,17 +224,18 @@ export default function ReusableTable<T extends Record<string, any>>({
             )}
 
             {hasAnioColumn && anioOptions.length > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
+                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                   Año:
                 </Typography>
                 <Select
                   size="small"
+                  fullWidth
                   value={anioFilter}
                   onChange={(e) => setAnioFilter(e.target.value)}
                   sx={{
                     height: 36,
-                    minWidth: 100,
+                    minWidth: { xs: 80, sm: 95 },
                     fontSize: '0.8rem',
                     borderRadius: '8px',
                     backgroundColor: '#ffffff',
@@ -232,8 +252,26 @@ export default function ReusableTable<T extends Record<string, any>>({
         </Box>
       )}
 
-      <TableContainer ref={tableContainerRef} sx={{ width: '100%', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', overflowX: 'hidden', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
+      <TableContainer
+        ref={tableContainerRef}
+        sx={{
+          width: '100%',
+          maxHeight: { xs: 'calc(100vh - 280px)', sm: 'calc(100vh - 220px)' },
+          overflowY: 'auto',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        <Table
+          size="small"
+          stickyHeader
+          sx={{
+            minWidth: { xs: '980px', md: '100%' },
+            tableLayout: 'fixed',
+          }}
+        >
           <TableHead>
             <TableRow>
               {columns.map((col) => (
