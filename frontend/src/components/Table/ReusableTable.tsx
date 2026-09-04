@@ -392,30 +392,41 @@ export default function ReusableTable<T extends Record<string, any>>({
               </Select>
             </Box>
 
-            {/* Always visible button to toggle showing/hiding Días columns */}
+            {/* Toggle button to show/hide Días columns with small Red / Green indicator circle */}
             <Button
               size="small"
-              variant="outlined"
               onClick={() => setShowDias(!showDias)}
-              startIcon={showDias ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+              title={showDias ? 'Días Visibles (Clic para ocultar)' : 'Días Ocultos (Clic para mostrar)'}
               sx={{
                 height: 36,
                 px: 1.5,
-                fontSize: '0.78rem',
-                fontWeight: 800,
-                borderRadius: '8px',
-                whiteSpace: 'nowrap',
-                textTransform: 'none',
-                backgroundColor: showDias ? '#eef6f3 !important' : '#ffffff !important',
-                color: showDias ? '#008E60 !important' : '#64748b !important',
-                borderColor: showDias ? '#008E60 !important' : '#cbd5e1 !important',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08) !important',
+                borderRadius: '20px',
+                border: '1px solid #cbd5e1 !important',
+                backgroundColor: '#ffffff !important',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06) !important',
                 '&:hover': {
-                  backgroundColor: '#e2e8f0 !important',
+                  backgroundColor: '#f8fafc !important',
+                  borderColor: '#94a3b8 !important',
                 },
               }}
             >
-              {showDias ? '📅 Días: Visibles' : '🙈 Días: Ocultos'}
+              <Box
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  backgroundColor: showDias ? '#22c55e' : '#ef4444',
+                  boxShadow: showDias ? '0 0 6px rgba(34, 197, 94, 0.7)' : '0 0 6px rgba(239, 68, 68, 0.7)',
+                  transition: 'all 0.2s ease',
+                }}
+              />
+              <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.76rem', color: '#334155' }}>
+                Días
+              </Typography>
             </Button>
           </Box>
         </Box>

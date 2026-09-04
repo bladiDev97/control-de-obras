@@ -315,10 +315,10 @@ body {
 }
 
 .MuiTableRow-root.status-terminada {
-  background-color: #bae6fd !important; /* Striking light blue for finished in field */
+  background-color: #ffedd5 !important; /* Soft vibrant orange for Conciliar / finished in field */
 }
 .MuiTableRow-root.status-terminada:hover {
-  background-color: #7dd3fc !important; /* Slightly darker blue on hover */
+  background-color: #fed7aa !important; /* Slightly darker soft orange on hover */
 }
 
 /* Obras con fecha de término pero sin fecha en campo (Para Conexión) */
