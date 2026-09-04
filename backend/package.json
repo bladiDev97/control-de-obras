@@ -19,7 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "node seed_db.js",
-    "backup": "node backup_db.js"
+    "sync-remote": "node sync_remote_to_local.js"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.788.0",
