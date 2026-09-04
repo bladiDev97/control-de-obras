@@ -59,9 +59,29 @@ export default function ReusableTable<T extends Record<string, any>>({
     }
   }, [rows.length]);
 
-  // Check if rows have a status column to dynamically render CFE status filter
+  // Check available filterable columns dynamically
   const hasStatusColumn = rows.length > 0 && 'estatus' in rows[0];
+  const hasTipoObraColumn = rows.length > 0 && 'tipoObra' in rows[0];
+  const hasAnioColumn = rows.length > 0 && 'anio' in rows[0];
+
   const [statusFilter, setStatusFilter] = useState<string>('TODOS');
+  const [tipoObraFilter, setTipoObraFilter] = useState<string>('TODOS');
+  const [anioFilter, setAnioFilter] = useState<string>('TODOS');
+
+  // Compute unique values for dropdowns
+  const tipoObraOptions = React.useMemo(() => {
+    if (!hasTipoObraColumn) return [];
+    return Array.from(
+      new Set(rows.map((r) => String(r.tipoObra || '').toUpperCase().trim()).filter(Boolean))
+    ).sort();
+  }, [rows, hasTipoObraColumn]);
+
+  const anioOptions = React.useMemo(() => {
+    if (!hasAnioColumn) return [];
+    return Array.from(
+      new Set(rows.map((r) => String(r.anio || '').trim()).filter(Boolean))
+    ).sort((a, b) => b.localeCompare(a));
+  }, [rows, hasAnioColumn]);
 
   // Apply filters
   const filtered = rows.filter((row) => {
@@ -69,7 +89,15 @@ export default function ReusableTable<T extends Record<string, any>>({
     if (hasStatusColumn && statusFilter !== 'TODOS') {
       if (row.estatus !== statusFilter) return false;
     }
-    // 2. Search Text Filter
+    // 2. Tipo Obra Filter
+    if (hasTipoObraColumn && tipoObraFilter !== 'TODOS') {
+      if (String(row.tipoObra || '').toUpperCase().trim() !== tipoObraFilter) return false;
+    }
+    // 3. Anio Filter
+    if (hasAnioColumn && anioFilter !== 'TODOS') {
+      if (String(row.anio || '').trim() !== anioFilter) return false;
+    }
+    // 4. Search Text Filter
     return columns.some((col) =>
       String(row[col.key] ?? '')
         .toLowerCase()
@@ -101,11 +129,11 @@ export default function ReusableTable<T extends Record<string, any>>({
 
   return (
     <Paper className="card" sx={{ p: { xs: 1.5, sm: 2.5 }, width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
-      {/* Toolbar: Search input + Status Dropdown Filter */}
-      {(searchable || hasStatusColumn) && (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '16px', mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Toolbar: Search input + Multi-Dropdown Filters */}
+      {(searchable || hasStatusColumn || hasTipoObraColumn || hasAnioColumn) && (
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '12px', mb: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
           {searchable && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '1 1 240px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '1 1 200px' }}>
               <TextField
                 size="small"
                 fullWidth
@@ -119,36 +147,88 @@ export default function ReusableTable<T extends Record<string, any>>({
                     </InputAdornment>
                   ),
                 }}
-                sx={{ maxWidth: 320 }}
+                sx={{ maxWidth: 280 }}
               />
             </Box>
           )}
 
-          {hasStatusColumn && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Filtrar Estatus:
-              </Typography>
-              <Select
-                size="small"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                sx={{
-                  height: 38,
-                  minWidth: 160,
-                  fontSize: '0.85rem',
-                  borderRadius: '8px',
-                  backgroundColor: '#ffffff',
-                }}
-              >
-                <MenuItem value="TODOS" sx={{ fontSize: '0.85rem' }}>TODOS</MenuItem>
-                <MenuItem value="PENDIENTE" sx={{ fontSize: '0.85rem' }}>ASIGNAR</MenuItem>
-                <MenuItem value="ASIGNADA" sx={{ fontSize: '0.85rem' }}>PROCESO</MenuItem>
-                <MenuItem value="TERMINADA" sx={{ fontSize: '0.85rem' }}>TERMINADA</MenuItem>
-                <MenuItem value="CAPITALIZADA" sx={{ fontSize: '0.85rem' }}>CAPITALIZADA</MenuItem>
-              </Select>
-            </Box>
-          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            {hasStatusColumn && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Estatus:
+                </Typography>
+                <Select
+                  size="small"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  sx={{
+                    height: 36,
+                    minWidth: 130,
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#ffffff',
+                  }}
+                >
+                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem' }}>TODOS</MenuItem>
+                  <MenuItem value="PENDIENTE" sx={{ fontSize: '0.8rem' }}>ASIGNAR</MenuItem>
+                  <MenuItem value="ASIGNADA" sx={{ fontSize: '0.8rem' }}>PROCESO</MenuItem>
+                  <MenuItem value="TERMINADA" sx={{ fontSize: '0.8rem' }}>TERMINADA</MenuItem>
+                  <MenuItem value="CAPITALIZADA" sx={{ fontSize: '0.8rem' }}>CAPITALIZADA</MenuItem>
+                </Select>
+              </Box>
+            )}
+
+            {hasTipoObraColumn && tipoObraOptions.length > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Tipo:
+                </Typography>
+                <Select
+                  size="small"
+                  value={tipoObraFilter}
+                  onChange={(e) => setTipoObraFilter(e.target.value)}
+                  sx={{
+                    height: 36,
+                    minWidth: 120,
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#ffffff',
+                  }}
+                >
+                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem' }}>TODOS</MenuItem>
+                  {tipoObraOptions.map((opt) => (
+                    <MenuItem key={opt} value={opt} sx={{ fontSize: '0.8rem' }}>{opt}</MenuItem>
+                  ))}
+                </Select>
+              </Box>
+            )}
+
+            {hasAnioColumn && anioOptions.length > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Año:
+                </Typography>
+                <Select
+                  size="small"
+                  value={anioFilter}
+                  onChange={(e) => setAnioFilter(e.target.value)}
+                  sx={{
+                    height: 36,
+                    minWidth: 100,
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#ffffff',
+                  }}
+                >
+                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem' }}>TODOS</MenuItem>
+                  {anioOptions.map((opt) => (
+                    <MenuItem key={opt} value={opt} sx={{ fontSize: '0.8rem' }}>{opt}</MenuItem>
+                  ))}
+                </Select>
+              </Box>
+            )}
+          </Box>
         </Box>
       )}
 

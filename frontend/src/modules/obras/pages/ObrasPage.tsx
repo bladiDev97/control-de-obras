@@ -370,8 +370,8 @@ export default function ObrasPage() {
     },
     {
       key: 'dias' as any,
-      label: 'Días',
-      width: '4%',
+      label: 'DÍAS',
+      width: '7%',
       render: (row: any) => typeof row.dias === 'number' ? row.dias : 0,
     },
     {
