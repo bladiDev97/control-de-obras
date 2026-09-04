@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Dialog, 
   DialogTitle, 
@@ -7,7 +7,10 @@ import {
   Button, 
   Box, 
   Grid,
-  IconButton
+  IconButton,
+  Switch,
+  FormControlLabel,
+  Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PrintIcon from '@mui/icons-material/Print';
@@ -70,6 +73,8 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
   zonaFooterStr, 
   zonaLocationStr
 }) => {
+  const [usarReglaFecha, setUsarReglaFecha] = useState<boolean>(true);
+
   if (!previewData) return null;
 
   const handlePrint = () => {
@@ -93,7 +98,7 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
       const siadRetiro = previewData.siadRetiro || '-';
       const or = previewData.ordenRetiro || '-';
 
-      const fechaConciliacionText = formatDateSpanish(getFechaConciliacion(previewData.fechaCapitalizacion, previewData.fechaTerminoCampo));
+      const fechaConciliacionText = formatDateSpanish(getFechaConciliacion(previewData.fechaCapitalizacion, previewData.fechaTerminoCampo, usarReglaFecha));
 
       const printHtml = `
         <html>
@@ -201,8 +206,26 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        Vista Previa: Conciliación de Obra
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <span>Vista Previa: Conciliación de Obra</span>
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={usarReglaFecha}
+                onChange={(e) => setUsarReglaFecha(e.target.checked)}
+                color="primary"
+              />
+            }
+            label={
+              <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: usarReglaFecha ? '#15803d' : '#64748b' }}>
+                {usarReglaFecha ? 'Regla Fecha (+19d): SÍ' : 'Regla Fecha: NO (Hoy)'}
+              </Typography>
+            }
+            sx={{ m: 0, ml: 1, backgroundColor: '#f8fafc', px: 1.2, py: 0.3, borderRadius: '20px', border: '1px solid #cbd5e1' }}
+          />
+        </Box>
         <IconButton onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
@@ -237,7 +260,7 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
                     Asunto: Conciliación de Obra
                   </Box>
                   <Box sx={{ textAlign: 'right', fontSize: '13px', mb: '30px' }}>
-                    {zonaLocationStr}, {formatDateSpanish(getFechaConciliacion(previewData.fechaCapitalizacion, previewData.fechaTerminoCampo))}
+                    {zonaLocationStr}, {formatDateSpanish(getFechaConciliacion(previewData.fechaCapitalizacion, previewData.fechaTerminoCampo, usarReglaFecha))}
                   </Box>
                   <Box sx={{ fontSize: '13px', mb: '25px', lineHeight: '1.4' }}>
                     <Box component="div" sx={{ fontWeight: 'bold' }}>{adminNombre.toUpperCase()}</Box>
@@ -245,7 +268,7 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
                     <Box component="div">{adminZona}</Box>
                   </Box>
                   <Box sx={{ textAlign: 'justify', fontSize: '13px', mb: '20px', textJustify: 'inter-word' }}>
-                    Por medio del presente le informo a usted, que la R.D. <strong>{previewData.rd || 'N/A'}</strong> con número de AT <strong>{previewData.at || 'N/A'}</strong>, número de activo <strong>{previewData.activo || 'N/A'}</strong> y número orden <strong>{previewData.orden || 'N/A'}</strong>, construida bajo el amparo del contrato <strong>{previewData.contrato || 'N/A'}</strong> quedo conciliada el día <strong>{formatDateSpanish(getFechaConciliacion(previewData.fechaCapitalizacion, previewData.fechaTerminoCampo))}</strong>, por lo anterior solicitamos que a partir de recibir el presente no se afecte ningún movimiento de materiales con cargo al activo de la obra.
+                    Por medio del presente le informo a usted, que la R.D. <strong>{previewData.rd || 'N/A'}</strong> con número de AT <strong>{previewData.at || 'N/A'}</strong>, número de activo <strong>{previewData.activo || 'N/A'}</strong> y número orden <strong>{previewData.orden || 'N/A'}</strong>, construida bajo el amparo del contrato <strong>{previewData.contrato || 'N/A'}</strong> quedo conciliada el día <strong>{formatDateSpanish(getFechaConciliacion(previewData.fechaCapitalizacion, previewData.fechaTerminoCampo, usarReglaFecha))}</strong>, por lo anterior solicitamos que a partir de recibir el presente no se afecte ningún movimiento de materiales con cargo al activo de la obra.
                   </Box>
                   <Box sx={{ textAlign: 'justify', fontSize: '13px', mb: '20px', textJustify: 'inter-word' }}>
                     Adicionalmente le informo que la empresa contratista responsable de la construcción de la obra no tiene ninguna inconformidad con lo indicado, firmando de consentimiento el presente documento.<br />

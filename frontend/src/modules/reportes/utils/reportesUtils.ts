@@ -41,8 +41,17 @@ export const formatDateSpanish = (dateStr: string): string => {
   }
 };
 
-export const getFechaConciliacion = (fechaCapitalizacion?: string, fechaTerminoCampo?: string): string => {
-  if (!fechaCapitalizacion) return '';
+export const getFechaConciliacion = (
+  fechaCapitalizacion?: string,
+  fechaTerminoCampo?: string,
+  usarRegla: boolean = true,
+): string => {
+  if (!usarRegla) {
+    // Si la regla está deshabilitada, aplica la fecha de hoy (día que se genera)
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  if (!fechaCapitalizacion) return new Date().toISOString().slice(0, 10);
   if (!fechaTerminoCampo) return fechaCapitalizacion;
 
   try {

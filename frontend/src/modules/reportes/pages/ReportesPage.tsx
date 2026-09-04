@@ -54,6 +54,7 @@ export default function ReportesPage() {
   const [activeTab, setActiveTab] = useState<'asignacion' | 'conciliacion' | 'suspension' | 'suspensionMt' | 'etiquetas'>('asignacion');
 
   // Custom signature configuration states
+  const [usarReglaConciliacion, setUsarReglaConciliacion] = useState(true);
   const [supervisorNombre, setSupervisorNombre] = useState('MARCOS BLADIMIR ROMERO PÉREZ');
   const [supervisorRpe, setSupervisorRpe] = useState('9NGB3');
   const [mostrarSupervisor, setMostrarSupervisor] = useState(true);
@@ -271,7 +272,7 @@ export default function ReportesPage() {
       const siadRetiro = detail.siadRetiro || '-';
       const or = detail.ordenRetiro || '-';
 
-      const fechaConciliacion = getFechaConciliacion(detail.fechaCapitalizacion, detail.fechaTerminoCampo);
+      const fechaConciliacion = getFechaConciliacion(detail.fechaCapitalizacion, detail.fechaTerminoCampo, usarReglaConciliacion);
       const fechaConciliacionText = formatLongDate(fechaConciliacion || detail.fechaCapitalizacion);
 
       printWindow.document.write(`
@@ -647,7 +648,23 @@ export default function ReportesPage() {
             </Typography>
             
             {activeTab === 'conciliacion' && (
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={usarReglaConciliacion}
+                      onChange={(e) => setUsarReglaConciliacion(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontSize: '0.82rem', fontWeight: '600', color: usarReglaConciliacion ? '#15803d' : '#64748b' }}>
+                      {usarReglaConciliacion ? 'Regla Fecha (+19d): SÍ' : 'Regla Fecha: NO (Hoy)'}
+                    </Typography>
+                  }
+                  sx={{ m: 0, backgroundColor: '#f8fafc', px: 1.2, py: 0.3, borderRadius: '20px', border: '1px solid #cbd5e1' }}
+                />
                 <FormControlLabel
                   control={
                     <Switch
