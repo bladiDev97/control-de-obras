@@ -316,18 +316,29 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
           </Grid>
         </Grid>
       </DialogContent>
-      <DialogActions sx={{ p: 2, borderTop: '1px solid #ddd', backgroundColor: '#fafafa' }}>
-        <Button onClick={onClose} variant="outlined" color="inherit">
-          Cancelar
-        </Button>
-        <Button 
-          onClick={handlePrint} 
-          variant="contained" 
-          color="primary"
-          startIcon={<PrintIcon />}
+      <DialogActions sx={{ p: 2, borderTop: '1px solid #ddd', backgroundColor: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Button
+          size="small"
+          variant={usarReglaFecha ? "contained" : "outlined"}
+          color={usarReglaFecha ? "success" : "warning"}
+          onClick={() => setUsarReglaFecha(!usarReglaFecha)}
+          sx={{ borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'none' }}
         >
-          Imprimir Documento
+          {usarReglaFecha ? '⚡ Regla Fecha (+19d): ACTIVADA' : '📅 Usar Fecha de Hoy'}
         </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button onClick={onClose} variant="outlined" color="inherit">
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handlePrint} 
+            variant="contained" 
+            color="primary"
+            startIcon={<PrintIcon />}
+          >
+            Imprimir Documento
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );
