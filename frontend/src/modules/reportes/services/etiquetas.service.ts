@@ -36,7 +36,7 @@ export const etiquetasService = {
           </colgroup>
           <tr>
             <td style="font-weight: bold; background-color: #f8fafc;">${obra.at || '-'}</td>
-            <td colspan="5" style="text-align: left; padding-left: 6px;">${rdLabel}</td>
+            <td colspan="5" style="text-align: left; padding-left: 6px;">R.D. ${rdLabel}</td>
           </tr>
           <tr>
             <td>${obra.obra || '-'}</td>
