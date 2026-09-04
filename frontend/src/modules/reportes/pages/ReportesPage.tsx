@@ -555,23 +555,6 @@ export default function ReportesPage() {
       }
     },
     {
-      key: 'dias' as any,
-      label: 'DÍAS',
-      width: '7%',
-      render: (row: any) => {
-        const d = typeof row.dias === 'number' ? row.dias : (row.diasSinCapitalizar || 0);
-        let color = '#15803d'; // Verde (<11 días)
-        if (d >= 17) color = '#dc2626'; // Rojo (>=17 días)
-        else if (d >= 11) color = '#EE6C00'; // Naranja (11-16 días)
-
-        return (
-          <span style={{ color, fontWeight: '800', textDecoration: 'underline' }}>
-            {d} {d === 1 ? 'día' : 'días'}
-          </span>
-        );
-      },
-    },
-    {
       key: 'id',
       label: 'Acciones',
       render: (row: Obra) => {
@@ -582,28 +565,27 @@ export default function ReportesPage() {
               <Button
                 variant="contained"
                 size="small"
-                disabled={!isAssigned}
-                startIcon={<VisibilityIcon />}
+                startIcon={<DescriptionIcon />}
                 onClick={() => handleOpenPreview(row.id, 'oficio')}
+                disabled={!isAssigned}
                 sx={{
-                  backgroundColor: isAssigned ? 'var(--color-primary)' : '#94a3b8',
+                  backgroundColor: isAssigned ? 'var(--verde-cfe)' : '#cbd5e1',
                   color: 'white',
                   fontWeight: 'bold',
                   borderRadius: '8px',
                   fontSize: '0.7rem',
                   textTransform: 'none',
                   '&:hover': {
-                    backgroundColor: isAssigned ? 'var(--color-secondary)' : '#94a3b8',
+                    backgroundColor: '#007650',
                   }
                 }}
               >
-                {isAssigned ? 'Oficio Asignación' : 'No Asignada'}
+                Oficio Asignación
               </Button>
             ) : (
               <Button
                 variant="contained"
                 size="small"
-                color="success"
                 startIcon={<VisibilityIcon />}
                 onClick={() => handleOpenPreview(row.id, 'conciliacion')}
                 sx={{
@@ -666,22 +648,41 @@ export default function ReportesPage() {
             
             {activeTab === 'conciliacion' && (
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      size="small"
-                      checked={usarReglaConciliacion}
-                      onChange={(e) => setUsarReglaConciliacion(e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Typography sx={{ fontSize: '0.82rem', fontWeight: '600', color: usarReglaConciliacion ? '#15803d' : '#64748b' }}>
-                      {usarReglaConciliacion ? 'Regla Fecha (+19d): SÍ' : 'Regla Fecha: NO (Hoy)'}
-                    </Typography>
-                  }
-                  sx={{ m: 0, backgroundColor: '#f8fafc', px: 1.2, py: 0.3, borderRadius: '20px', border: '1px solid #cbd5e1' }}
-                />
+                <Button
+                  size="small"
+                  onClick={() => setUsarReglaConciliacion(!usarReglaConciliacion)}
+                  title={usarReglaConciliacion ? 'Regla +19d Activada (Clic para usar Fecha de Hoy)' : 'Regla +19d Desactivada (Clic para activar)'}
+                  sx={{
+                    height: 32,
+                    px: 1.5,
+                    borderRadius: '20px',
+                    border: '1px solid #cbd5e1 !important',
+                    backgroundColor: '#ffffff !important',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06) !important',
+                    '&:hover': {
+                      backgroundColor: '#f8fafc !important',
+                      borderColor: '#94a3b8 !important',
+                    },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: '50%',
+                      backgroundColor: usarReglaConciliacion ? '#22c55e' : '#ef4444',
+                      boxShadow: usarReglaConciliacion ? '0 0 6px rgba(34, 197, 94, 0.7)' : '0 0 6px rgba(239, 68, 68, 0.7)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.76rem', color: '#334155' }}>
+                    Regla +19d
+                  </Typography>
+                </Button>
                 <FormControlLabel
                   control={
                     <Switch

@@ -209,22 +209,41 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <span>Vista Previa: Conciliación de Obra</span>
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={usarReglaFecha}
-                onChange={(e) => setUsarReglaFecha(e.target.checked)}
-                color="primary"
-              />
-            }
-            label={
-              <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: usarReglaFecha ? '#15803d' : '#64748b' }}>
-                {usarReglaFecha ? 'Regla Fecha (+19d): SÍ' : 'Regla Fecha: NO (Hoy)'}
-              </Typography>
-            }
-            sx={{ m: 0, ml: 1, backgroundColor: '#f8fafc', px: 1.2, py: 0.3, borderRadius: '20px', border: '1px solid #cbd5e1' }}
-          />
+          <Button
+            size="small"
+            onClick={() => setUsarReglaFecha(!usarReglaFecha)}
+            title={usarReglaFecha ? 'Regla +19d Activada (Clic para usar Fecha de Hoy)' : 'Regla +19d Desactivada (Clic para activar)'}
+            sx={{
+              height: 30,
+              px: 1.2,
+              borderRadius: '20px',
+              border: '1px solid #cbd5e1 !important',
+              backgroundColor: '#ffffff !important',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.8,
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.06) !important',
+              '&:hover': {
+                backgroundColor: '#f8fafc !important',
+                borderColor: '#94a3b8 !important',
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: 9,
+                height: 9,
+                borderRadius: '50%',
+                backgroundColor: usarReglaFecha ? '#22c55e' : '#ef4444',
+                boxShadow: usarReglaFecha ? '0 0 6px rgba(34, 197, 94, 0.7)' : '0 0 6px rgba(239, 68, 68, 0.7)',
+                transition: 'all 0.2s ease',
+              }}
+            />
+            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.74rem', color: '#334155' }}>
+              Regla +19d
+            </Typography>
+          </Button>
         </Box>
         <IconButton onClick={onClose} size="small">
           <CloseIcon />
