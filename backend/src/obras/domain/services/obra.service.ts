@@ -97,15 +97,11 @@ export class ObraService {
         ? obra.oficio
         : undefined;
 
-      const poblacion = (obra.poblacion || '').trim();
+      const cleanPoblacion = (obra.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      const cleanRd = (obra.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      const poblacion = cleanPoblacion || cleanRd;
       const nombre = (obra.nombreSolicitante || '').trim();
-      const parts = [poblacion, nombre].filter(Boolean).join(' ');
-      let rd = obra.rd || '';
-      if (parts) {
-        rd = parts;
-      } else if (rd) {
-        rd = rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
-      }
+      const rd = [poblacion, nombre].filter(Boolean).join(' ') || cleanRd || obra.rd || '';
 
       return {
         ...obra,
@@ -1071,10 +1067,12 @@ export class ObraService {
       return dateStr.toUpperCase();
     };
 
-    // Concatenate RD using Poblacion and Municipio, or fall back to obra.rd
-    const rd = (obra as any).poblacion 
-      ? `${(obra as any).poblacion}${(obra as any).municipio ? ' MUNICIPIO DE ' + (obra as any).municipio : ''}`.toUpperCase() 
-      : (obra.rd || 'N/A').toUpperCase();
+    // Concatenate RD using Población + NombreSolicitante
+    const cleanPoblacion = ((obra as any).poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+    const cleanRd = (obra.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+    const poblacion = cleanPoblacion || cleanRd;
+    const nombre = ((obra as any).nombreSolicitante || '').trim();
+    const rd = ([poblacion, nombre].filter(Boolean).join(' ') || cleanRd || obra.rd || 'N/A').toUpperCase();
 
     // Default dynamic placeholders based on the user's specific examples
     let estimacionNo = '27';
@@ -1231,12 +1229,11 @@ export class ObraService {
           ? (u.sk || u.solicitudPo || '')
           : `obra#${u.sk || u.solicitudPo}`;
 
-        const poblacion = (u.poblacion || '').trim();
+        const cleanPoblacion = (u.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        const cleanRd = (u.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        const poblacion = cleanPoblacion || cleanRd;
         const nombre = (u.nombreSolicitante || '').trim();
-        let desiredRd = [poblacion, nombre].filter(Boolean).join(' ');
-        if (!desiredRd && u.rd) {
-          desiredRd = u.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
-        }
+        const desiredRd = [poblacion, nombre].filter(Boolean).join(' ') || cleanRd || u.rd || '';
 
         let needsSave = false;
         const toSave = { ...u, pk, sk: cleanSk };
@@ -1286,12 +1283,11 @@ export class ObraService {
         const currentConsecutivo = Number(a.oficioConsecutivo);
         const desiredConsecutivo = nextSeq++;
 
-        const poblacion = (a.poblacion || '').trim();
+        const cleanPoblacion = (a.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        const cleanRd = (a.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        const poblacion = cleanPoblacion || cleanRd;
         const nombre = (a.nombreSolicitante || '').trim();
-        let desiredRd = [poblacion, nombre].filter(Boolean).join(' ');
-        if (!desiredRd && a.rd) {
-          desiredRd = a.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
-        }
+        const desiredRd = [poblacion, nombre].filter(Boolean).join(' ') || cleanRd || a.rd || '';
 
         const needsUpdate =
           currentConsecutivo !== desiredConsecutivo ||
@@ -1346,19 +1342,22 @@ export class ObraService {
         ? (obra.sk || obra.solicitudPo || '')
         : `obra#${obra.sk || obra.solicitudPo}`;
 
-      const poblacion = (obra.poblacion || '').trim();
+      const cleanPoblacion = (obra.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      const cleanRd = (obra.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      const poblacion = cleanPoblacion || cleanRd;
       const nombre = (obra.nombreSolicitante || '').trim();
-      let desiredRd = [poblacion, nombre].filter(Boolean).join(' ');
-      if (!desiredRd && obra.rd) {
-        desiredRd = obra.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
-      }
+      const desiredRd = [poblacion, nombre].filter(Boolean).join(' ') || cleanRd || obra.rd || '';
 
-      if (desiredRd && obra.rd !== desiredRd) {
+      const needsPoblacionUpdate = obra.poblacion && obra.poblacion !== cleanPoblacion;
+      const needsRdUpdate = desiredRd && obra.rd !== desiredRd;
+
+      if (needsRdUpdate || needsPoblacionUpdate) {
         const toSave: IObra = {
           ...obra,
           pk,
           sk: cleanSk,
           rd: desiredRd,
+          poblacion: cleanPoblacion || obra.poblacion,
         };
         try {
           await this.obraRepository.obraUpdate(toSave);

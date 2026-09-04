@@ -213,11 +213,12 @@ export default function ObrasPage() {
       label: 'RD',
       width: '12%',
       render: (row) => {
-        const parts = [];
-        if ((row as any).poblacion) parts.push((row as any).poblacion.toUpperCase());
-        if ((row as any).nombreSolicitante) parts.push((row as any).nombreSolicitante.toUpperCase());
-        let text = parts.length > 0 ? parts.join(' ') : (row.rd || '');
-        if (text) text = text.replace(/\s*MUNICIPIO\s+DE\s+.*$/i, '').trim();
+        const cleanPoblacion = ((row as any).poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        const cleanRd = (row.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        const poblacion = cleanPoblacion || cleanRd;
+        const nombre = ((row as any).nombreSolicitante || '').trim();
+        const parts = [poblacion, nombre].filter(Boolean).join(' ');
+        let text = (parts || cleanRd || row.rd || '').toUpperCase();
         return (
           <div
             title={text}
@@ -1056,7 +1057,14 @@ export default function ObrasPage() {
               </div>
               <div>
                 <strong style={{ color: '#64748b' }}>RD (Población/Solicitante):</strong>{' '}
-                {`${(previewObra as any).poblacion || ''} ${previewObra.nombreSolicitante || ''}`.trim() || previewObra.rd?.replace(/\s*municipio\s+de\s+.*$/i, '') || '-'}
+                {(() => {
+                  const cleanPoblacion = ((previewObra as any).poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+                  const cleanRd = (previewObra.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+                  const poblacion = cleanPoblacion || cleanRd;
+                  const nombre = (previewObra.nombreSolicitante || '').trim();
+                  const parts = [poblacion, nombre].filter(Boolean).join(' ');
+                  return parts || cleanRd || previewObra.rd || '-';
+                })()}
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <strong style={{ color: '#64748b' }}>Nombre del Solicitante:</strong>{' '}

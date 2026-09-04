@@ -15,14 +15,13 @@ export const etiquetasService = {
     document.body.appendChild(iframe);
 
     let labelsHtml = obras.map(obra => {
-      let poblacion = (obra.poblacion || '').trim();
-      if (!poblacion && obra.rd) {
-        poblacion = obra.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim();
-      }
-
+      const cleanPoblacion = (obra.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      const cleanRd = (obra.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+      const poblacion = cleanPoblacion || cleanRd;
       const nombre = (obra.nombreSolicitante || '').trim();
+
       const parts = [poblacion, nombre].filter(Boolean).join(' ');
-      const rdLabel = parts ? parts : (obra.rd ? obra.rd.replace(/\s*municipio\s+de\s+.*$/i, '').trim() : (obra.obra || '-'));
+      const rdLabel = parts ? parts : (cleanRd || obra.obra || '-');
 
       return `
       <div class="label-container">

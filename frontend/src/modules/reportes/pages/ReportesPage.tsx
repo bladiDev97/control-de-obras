@@ -129,7 +129,18 @@ export default function ReportesPage() {
       )
     },
     { key: 'at', label: 'AT' },
-    { key: 'rd', label: 'RD', render: (row: Obra) => row.rd || '-' },
+    { 
+      key: 'rd', 
+      label: 'RD', 
+      render: (row: Obra) => {
+        const cleanPoblacion = (row.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        const cleanRd = (row.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+        const poblacion = cleanPoblacion || cleanRd;
+        const nombre = (row.nombreSolicitante || '').trim();
+        const parts = [poblacion, nombre].filter(Boolean).join(' ');
+        return parts || cleanRd || row.rd || '-';
+      }
+    },
     { key: 'obra', label: 'OBRA' },
     { key: 'activo', label: 'ACTIVO' },
     { key: 'orden', label: 'ORDEN' },
