@@ -315,10 +315,10 @@ body {
 }
 
 .MuiTableRow-root.status-terminada {
-  background-color: #ffedd5 !important; /* Soft vibrant orange for Conciliar / finished in field */
+  background-color: #bae6fd !important; /* Soft light sky blue for Conciliar / Fecha Término en Campo */
 }
 .MuiTableRow-root.status-terminada:hover {
-  background-color: #fed7aa !important; /* Slightly darker soft orange on hover */
+  background-color: #7dd3fc !important; /* Darker blue on hover */
 }
 
 /* Obras con fecha de término pero sin fecha en campo (Para Conexión) */
