@@ -98,23 +98,12 @@ export default function ReusableTable<T extends Record<string, any>>({
     return columns.some((col) => isDiasColumn(col));
   }, [columns]);
 
-  // Helper to classify row color(s)
+  // Helper to classify row color(s) for the COLOR: filter dropdown (based on DAYS / POR VENCER badge & text colors)
   const getRowColors = (row: any): string[] => {
     const colors: string[] = [];
     const hasFechaTerminoCampo = !!(row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '');
 
-    // 1. Row background class logic based strictly on status/field end date
-    if (row.estatus === 'CAPITALIZADA') {
-      if (!hasFechaTerminoCampo) {
-        colors.push('ROJO'); // CAPITALIZAR (Anomalía)
-      } else {
-        colors.push('VERDE'); // INVENTARIO
-      }
-    } else {
-      colors.push('NARANJA'); // CONCILIAR
-    }
-
-    // 2. POR VENCER badge colors if applicable
+    // 1. Check POR VENCER badge colors if applicable
     if (
       typeof row.diasParaVencerse === 'number' &&
       !hasFechaTerminoCampo &&
@@ -131,15 +120,31 @@ export default function ReusableTable<T extends Record<string, any>>({
       }
     }
 
-    // 3. diasSinCapitalizar badge colors
-    if (typeof row.diasSinCapitalizar === 'number') {
-      const d = row.diasSinCapitalizar;
-      if (d >= 17) {
+    // 2. Check DÍAS / DÍAS SIN CAPITALIZAR text & badge colors
+    const dayVal = typeof row.diasSinCapitalizar === 'number'
+      ? row.diasSinCapitalizar
+      : (typeof row.dias === 'number' ? row.dias : null);
+
+    if (dayVal !== null) {
+      if (dayVal >= 17) {
         if (!colors.includes('ROJO')) colors.push('ROJO');
-      } else if (d >= 11) {
+      } else if (dayVal >= 11) {
         if (!colors.includes('NARANJA')) colors.push('NARANJA');
       } else {
         if (!colors.includes('VERDE')) colors.push('VERDE');
+      }
+    }
+
+    // 3. Status fallback if no days colors matched
+    if (colors.length === 0) {
+      if (row.estatus === 'CAPITALIZADA') {
+        if (!hasFechaTerminoCampo) {
+          colors.push('ROJO');
+        } else {
+          colors.push('VERDE');
+        }
+      } else {
+        colors.push('NARANJA');
       }
     }
 

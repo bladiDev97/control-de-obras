@@ -558,7 +558,18 @@ export default function ReportesPage() {
       key: 'dias' as any,
       label: 'DÍAS',
       width: '7%',
-      render: (row: any) => typeof row.dias === 'number' ? row.dias : (row.diasSinCapitalizar || 0),
+      render: (row: any) => {
+        const d = typeof row.dias === 'number' ? row.dias : (row.diasSinCapitalizar || 0);
+        let color = '#15803d'; // Verde (<11 días)
+        if (d >= 17) color = '#dc2626'; // Rojo (>=17 días)
+        else if (d >= 11) color = '#EE6C00'; // Naranja (11-16 días)
+
+        return (
+          <span style={{ color, fontWeight: '800', textDecoration: 'underline' }}>
+            {d} {d === 1 ? 'día' : 'días'}
+          </span>
+        );
+      },
     },
     {
       key: 'id',
