@@ -110,16 +110,14 @@ export default function ReusableTable<T extends Record<string, any>>({
     // 1. Row background class logic
     if (row.estatus === 'CAPITALIZADA') {
       if (!hasFechaTerminoCampo) {
-        colors.push('ROJO');
+        colors.push('ROJO'); // CAPITALIZAR (Anomalía)
       } else {
-        colors.push('VERDE');
+        colors.push('VERDE'); // INVENTARIO
       }
-    } else if (hasFechaTerminoCampo) {
-      colors.push('AZUL');
-    } else if (hasFechaTerminoConstruccion && !hasFechaTerminoCampo) {
-      colors.push('AMARILLO');
-    } else if (row.estatus === 'PENDIENTE' || row.estatus === 'ASIGNADA') {
-      colors.push('BLANCO');
+    } else if (hasFechaTerminoCampo || hasFechaTerminoConstruccion) {
+      colors.push('AMARILLO'); // CONCILIAR
+    } else {
+      colors.push('AMARILLO'); // CONCILIAR
     }
 
     // 2. POR VENCER badge colors
@@ -149,10 +147,6 @@ export default function ReusableTable<T extends Record<string, any>>({
       } else {
         if (!colors.includes('VERDE')) colors.push('VERDE');
       }
-    }
-
-    if (colors.length === 0) {
-      colors.push('BLANCO');
     }
 
     return colors;
@@ -345,7 +339,7 @@ export default function ReusableTable<T extends Record<string, any>>({
               </Box>
             )}
 
-            {/* Color Filter Dropdown */}
+            {/* Color Filter Dropdown: VERDES (INVENTARIO), ROJAS (CAPITALIZAR), AMARILLAS (CONCILIAR) */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
               <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                 Color:
@@ -367,18 +361,16 @@ export default function ReusableTable<T extends Record<string, any>>({
                 renderValue={(selected) => {
                   if (selected.includes('TODOS') || selected.length === 0) return 'TODOS';
                   return selected.map(c => {
-                    if (c === 'VERDE') return '🟢 VERDE';
-                    if (c === 'AZUL') return '🔵 AZUL';
-                    if (c === 'AMARILLO') return '🟡 AMARILLO';
-                    if (c === 'ROJO') return '🔴 ROJO';
-                    if (c === 'BLANCO') return '⚪ BLANCO';
+                    if (c === 'VERDE') return '🟢 VERDE (INVENTARIO)';
+                    if (c === 'ROJO') return '🔴 ROJO (CAPITALIZAR)';
+                    if (c === 'AMARILLO') return '🟡 AMARILLO (CONCILIAR)';
                     return c;
                   }).join(', ');
                 }}
                 sx={{
                   height: 36,
-                  minWidth: { xs: 110, sm: 135 },
-                  maxWidth: { xs: 170, sm: 220 },
+                  minWidth: { xs: 110, sm: 155 },
+                  maxWidth: { xs: 180, sm: 240 },
                   fontSize: '0.8rem',
                   borderRadius: '8px',
                   backgroundColor: '#ffffff',
@@ -388,49 +380,44 @@ export default function ReusableTable<T extends Record<string, any>>({
                   TODOS
                 </MenuItem>
                 <MenuItem value="VERDE" sx={{ fontSize: '0.8rem', color: '#15803d', fontWeight: selectedColors.includes('VERDE') ? 800 : 400 }}>
-                  🟢 VERDE (Capitalizada)
-                </MenuItem>
-                <MenuItem value="AZUL" sx={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: selectedColors.includes('AZUL') ? 800 : 400 }}>
-                  🔵 AZUL (Terminada Campo)
-                </MenuItem>
-                <MenuItem value="AMARILLO" sx={{ fontSize: '0.8rem', color: '#d97706', fontWeight: selectedColors.includes('AMARILLO') ? 800 : 400 }}>
-                  🟡 AMARILLO (En Conexión)
+                  🟢 VERDE (INVENTARIO)
                 </MenuItem>
                 <MenuItem value="ROJO" sx={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: selectedColors.includes('ROJO') ? 800 : 400 }}>
-                  🔴 ROJO (Anomalía)
+                  🔴 ROJO (CAPITALIZAR)
                 </MenuItem>
-                <MenuItem value="BLANCO" sx={{ fontSize: '0.8rem', color: '#475569', fontWeight: selectedColors.includes('BLANCO') ? 800 : 400 }}>
-                  ⚪ BLANCO (Proceso)
+                <MenuItem value="AMARILLO" sx={{ fontSize: '0.8rem', color: '#d97706', fontWeight: selectedColors.includes('AMARILLO') ? 800 : 400 }}>
+                  🟡 AMARILLO (CONCILIAR)
                 </MenuItem>
               </Select>
             </Box>
 
-            {/* Small button to toggle showing/hiding Días columns */}
+            {/* Discreet button to toggle showing/hiding Días columns */}
             {hasDiasColumn && (
               <Button
                 size="small"
-                variant={showDias ? 'contained' : 'outlined'}
+                variant="outlined"
                 onClick={() => setShowDias(!showDias)}
-                startIcon={showDias ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                startIcon={showDias ? <VisibilityIcon sx={{ fontSize: '0.85rem !important' }} /> : <VisibilityOffIcon sx={{ fontSize: '0.85rem !important' }} />}
                 sx={{
-                  height: 36,
-                  px: 1.5,
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  borderRadius: '8px',
+                  height: 32,
+                  px: 1.2,
+                  fontSize: '0.70rem',
+                  fontWeight: 700,
+                  borderRadius: '6px',
                   whiteSpace: 'nowrap',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.3px',
-                  backgroundColor: showDias ? '#008E60 !important' : '#ffffff !important',
-                  color: showDias ? '#ffffff !important' : '#475569 !important',
-                  borderColor: showDias ? '#008E60 !important' : '#cbd5e1 !important',
+                  textTransform: 'none',
+                  letterSpacing: '0.2px',
+                  backgroundColor: showDias ? '#f1f5f9 !important' : '#ffffff !important',
+                  color: showDias ? '#334155 !important' : '#94a3b8 !important',
+                  borderColor: showDias ? '#cbd5e1 !important' : '#e2e8f0 !important',
                   boxShadow: 'none !important',
                   '&:hover': {
-                    backgroundColor: showDias ? '#007650 !important' : '#f8fafc !important',
+                    backgroundColor: '#e2e8f0 !important',
+                    borderColor: '#cbd5e1 !important',
                   },
                 }}
               >
-                {showDias ? 'Días: ON' : 'Días: OFF'}
+                {showDias ? 'Ocultar Días' : 'Mostrar Días'}
               </Button>
             )}
           </Box>
