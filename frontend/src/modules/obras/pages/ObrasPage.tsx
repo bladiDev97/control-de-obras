@@ -211,7 +211,7 @@ export default function ObrasPage() {
     {
       key: 'rd',
       label: 'RD',
-      width: '12%',
+      width: '26%',
       render: (row) => {
         const cleanPoblacion = ((row as any).poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
         const cleanRd = (row.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
@@ -234,26 +234,6 @@ export default function ObrasPage() {
           </div>
         );
       }
-    },
-    {
-      key: 'nombreSolicitante',
-      label: 'Nombre',
-      width: '14%',
-      render: (row) => (
-        <div
-          title={row.nombreSolicitante || ''}
-          style={{
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            fontSize: '0.72rem',
-            lineHeight: '1.2',
-            textAlign: 'left'
-          }}
-        >
-          {row.nombreSolicitante || '-'}
-        </div>
-      )
     },
     {
       key: 'estatus',
