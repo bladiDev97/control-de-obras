@@ -73,6 +73,9 @@ export class ObraEntity extends GenericEntity implements IObra {
   contrato?: string;
 
   @Attribute()
+  conceptos?: { [conceptName: string]: number };
+
+  @Attribute()
   planoPdf?: string;
 
   @Attribute()

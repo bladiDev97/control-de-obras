@@ -4,6 +4,7 @@ import { DocumentClientTypes } from '@typedorm/document-client';
 import { ContratoEntity } from '../entities/contrato.entity';
 import { AsignacionEntity } from '../entities/asignacion.entity';
 import { EstimacionEntity } from '../entities/estimacion.entity';
+import { ObraEntity } from 'src/obras/infrastructure/entities/obra.entity';
 import { TypeDORMRepository } from 'src/shared/infrastructure/repository/generic.repository';
 import { Filters, Operator, SearchDTO } from 'src/shared/application/dto/search.dto';
 import { IQuery } from 'src/shared/domain/ientities/i-query';
@@ -84,53 +85,77 @@ export class ContratoRepository
   }
 
   // --- Assignments ---
-  public async asignacionSave(body: IAsignacion): Promise<AsignacionEntity> {
+  public async asignacionSave(body: IAsignacion): Promise<any> {
     const rawPk = body.pk;
     const encryptedPk = CryptoService.encryptEmail(rawPk);
-    const sk = `asignacion#${body.numeroContrato}#${body.at}`;
 
-    const entity = Object.assign(new AsignacionEntity(), body);
-    entity.pk = encryptedPk;
-    entity.sk = sk;
-    entity.isDelete = false;
-
-    let existing: AsignacionEntity | null = null;
-    try {
-      existing = await this.entityManager.findOne<AsignacionEntity, Partial<AsignacionEntity>>(AsignacionEntity, { pk: encryptedPk, sk });
-    } catch {
-      // ignore
-    }
-
-    let saved: AsignacionEntity;
-    if (existing) {
-      const { pk, sk: itemSk, ...propertiesUpdate } = entity;
-      saved = await this.entityManager.update<AsignacionEntity>(
-        AsignacionEntity,
-        { pk: encryptedPk, sk },
-        propertiesUpdate as AsignacionEntity
-      );
-    } else {
-      saved = await this.entityManager.create<AsignacionEntity>(entity);
-    }
-    saved.pk = CryptoService.decryptEmail(saved.pk);
-    return saved;
-  }
-
-  public async asignacionList(pk: string, numeroContrato: string): Promise<AsignacionEntity[]> {
-    const encryptedPk = CryptoService.encryptEmail(pk);
-    const result = await this.entityManager.find<AsignacionEntity>(
-      AsignacionEntity,
+    const result = await this.entityManager.find<ObraEntity>(
+      ObraEntity,
       encryptedPk,
       {
         keyCondition: {
-          BEGINS_WITH: `asignacion#${numeroContrato}#`
-        }
-      }
+          BEGINS_WITH: `obra#`,
+        },
+      },
     );
-    return result.items.map(item => {
-      item.pk = CryptoService.decryptEmail(item.pk);
-      return item;
-    }).filter(item => !item.isDelete);
+
+    const targetAt = (body.at || '').trim().toUpperCase();
+    const obra = result.items.find(
+      (o) =>
+        !o.isDelete &&
+        (((o.at || '').trim().toUpperCase() === targetAt) ||
+          ((o.solicitudPo || '').trim().toUpperCase() === targetAt) ||
+          ((o.obra || '').trim().toUpperCase() === (body.obra || '').trim().toUpperCase())),
+    );
+
+    if (obra) {
+      const conceptos = body.conceptos || {};
+      const contrato = body.numeroContrato || obra.contrato || '';
+      await this.entityManager.update<ObraEntity>(
+        ObraEntity,
+        { pk: encryptedPk, sk: obra.sk },
+        { conceptos, contrato } as Partial<ObraEntity>,
+      );
+      return {
+        ...body,
+        pk: CryptoService.decryptEmail(obra.pk),
+        sk: `asignacion#${body.numeroContrato}#${body.at}`,
+      };
+    }
+
+    return body;
+  }
+
+  public async asignacionList(pk: string, numeroContrato: string): Promise<any[]> {
+    const encryptedPk = CryptoService.encryptEmail(pk);
+    const result = await this.entityManager.find<ObraEntity>(
+      ObraEntity,
+      encryptedPk,
+      {
+        keyCondition: {
+          BEGINS_WITH: `obra#`,
+        },
+      },
+    );
+
+    const matched = result.items.filter(
+      (item) => !item.isDelete && item.contrato && item.contrato.trim() === numeroContrato.trim(),
+    );
+
+    return matched.map((item) => {
+      const decPk = CryptoService.decryptEmail(item.pk);
+      return {
+        pk: decPk,
+        sk: `asignacion#${numeroContrato}#${item.at || item.solicitudPo}`,
+        numeroContrato,
+        at: item.at || item.solicitudPo,
+        tipoObra: item.tipoObra,
+        obra: item.obra,
+        orden: item.orden,
+        activo: item.activo,
+        conceptos: item.conceptos || {},
+      };
+    });
   }
 
   // --- Estimaciones ---

@@ -17,6 +17,7 @@ export interface Obra {
   diasSinCapitalizar?: number;
   diasObraAPORTACIONES?: number;
   contrato?: string;
+  conceptos?: { [conceptName: string]: number };
   planoPdf?: string;
   poblacion?: string;
   municipio?: string;

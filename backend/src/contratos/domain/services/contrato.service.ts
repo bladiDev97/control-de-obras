@@ -174,12 +174,7 @@ export class ContratoService {
     // 1. Create or overwrite contract
     const contrato = await this.create(pk, contratoDto);
 
-    // 2. Clear old assignments and save new ones
-    const oldAsignaciones = await this.contratoRepository.asignacionList(pk, contrato.numeroContrato);
-    for (const old of oldAsignaciones) {
-      await this.contratoRepository.contratoDelete({ pk, sk: old.sk });
-    }
-
+    // 2. Save assignments directly into matching obras
     const savedAsignaciones = [];
     for (const asign of asignaciones) {
       asign.pk = pk;
