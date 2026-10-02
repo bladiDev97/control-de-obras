@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as AWS from 'aws-sdk';
-import { extname } from 'path';
+import { extname, basename } from 'path';
 
 @Injectable()
 export class S3Service {
@@ -15,9 +15,21 @@ export class S3Service {
     this.s3 = new AWS.S3({ region: this.region });
   }
 
-  public async uploadFile(file: { buffer: Buffer; originalname: string; mimetype: string }): Promise<string> {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const key = `uploads/plano-${uniqueSuffix}${extname(file.originalname)}`;
+  public async uploadFile(
+    file: { buffer: Buffer; originalname: string; mimetype: string },
+    customName?: string,
+  ): Promise<string> {
+    let key: string;
+    const targetName = customName || file.originalname;
+
+    if (targetName && targetName.trim() && targetName !== 'blob') {
+      const ext = extname(targetName) || '.pdf';
+      const base = basename(targetName, ext).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      key = `uploads/${base}${ext}`;
+    } else {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      key = `uploads/plano-${uniqueSuffix}${extname(file.originalname) || '.pdf'}`;
+    }
 
     this.logger.log(`Uploading file to S3 bucket [${this.bucketName}] with key: ${key}`);
 
@@ -25,7 +37,7 @@ export class S3Service {
       Bucket: this.bucketName,
       Key: key,
       Body: file.buffer,
-      ContentType: file.mimetype,
+      ContentType: file.mimetype || 'application/pdf',
     };
 
     try {
@@ -43,9 +55,15 @@ export class S3Service {
     fileName: string,
     contentType: string,
   ): Promise<{ uploadUrl: string; fileUrl: string }> {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = extname(fileName || 'document.pdf');
-    const key = `uploads/plano-${uniqueSuffix}${ext}`;
+    let key: string;
+    if (fileName && fileName.trim()) {
+      const ext = extname(fileName) || '.pdf';
+      const base = basename(fileName, ext).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      key = `uploads/${base}${ext}`;
+    } else {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      key = `uploads/plano-${uniqueSuffix}.pdf`;
+    }
 
     const params = {
       Bucket: this.bucketName,
@@ -69,6 +87,43 @@ export class S3Service {
     this.logger.log(`Fetching S3 object buffer for key: ${key}`);
     const res = await this.s3.getObject({ Bucket: this.bucketName, Key: key }).promise();
     return res.Body as Buffer;
+  }
+
+  public async getPresignedViewUrl(fileUrlOrKey: string): Promise<string> {
+    let key = fileUrlOrKey;
+    if (fileUrlOrKey.includes('.amazonaws.com/')) {
+      key = fileUrlOrKey.split('.amazonaws.com/')[1];
+    }
+    key = key.replace(/^\//, '');
+
+    const downloadFilename = basename(key) || 'plano.pdf';
+
+    const params = {
+      Bucket: this.bucketName,
+      Key: key,
+      Expires: 3600, // 1 hour
+      ResponseContentType: 'application/pdf',
+      ResponseContentDisposition: `inline; filename="${downloadFilename}"`,
+    };
+
+    const url = await this.s3.getSignedUrlPromise('getObject', params);
+    this.logger.log(`Generated presigned view URL for key: ${key}`);
+    return url;
+  }
+
+  public async objectExists(fileUrlOrKey: string): Promise<boolean> {
+    let key = fileUrlOrKey;
+    if (fileUrlOrKey.includes('.amazonaws.com/')) {
+      key = fileUrlOrKey.split('.amazonaws.com/')[1];
+    }
+    key = key.replace(/^\//, '');
+
+    try {
+      await this.s3.headObject({ Bucket: this.bucketName, Key: key }).promise();
+      return true;
+    } catch (e: any) {
+      return false;
+    }
   }
 }
 

@@ -28,6 +28,7 @@ export interface IObra extends IGenericEntity {
   municipio?: string;
   area?: string;
   nombreArea?: string;
+  zona?: string;
   fechaProgramada?: string;
   fechaPago?: string;
   

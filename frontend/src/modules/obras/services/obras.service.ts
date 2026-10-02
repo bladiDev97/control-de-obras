@@ -11,17 +11,23 @@ export const obrasService = {
   getAll: () => api.get<ApiResponse<Obra[]>>('/obras').then((r) => r.data.data),
   getCapitalizar: () => api.get<ApiResponse<Obra[]>>('/obras/capitalizar').then((r) => r.data.data),
   getOne: (id: string) => api.get<ApiResponse<Obra>>(`/obras/${id}`).then((r) => r.data.data),
-  terminar: (id: string, fechaTerminoCampo: string) =>
-    api.patch<ApiResponse<any>>(`/obras/${id}/terminar`, { fechaTerminoCampo }).then((r) => r.data.data),
+  terminar: (id: string, fechaTerminoCampo?: string, fechaFinConstruccion?: string) =>
+    api.patch<ApiResponse<any>>(`/obras/${id}/terminar`, { fechaTerminoCampo, fechaFinConstruccion }).then((r) => r.data.data),
 
   asignar: async (id: string, data: Partial<Obra>, planoPdf?: File) => {
     const finalPayload: Partial<Obra> = { ...data };
 
     if (planoPdf) {
+      const atClean = (data.at || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const obraClean = (data.obra || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const targetFileName = atClean && obraClean
+        ? `${atClean}_${obraClean}.pdf`
+        : (atClean || obraClean ? `${atClean || obraClean}.pdf` : planoPdf.name);
+
       try {
         const presigned = await api
           .get<ApiResponse<{ uploadUrl: string; fileUrl: string }>>('/obras/upload-url', {
-            params: { fileName: planoPdf.name, contentType: planoPdf.type || 'application/pdf' },
+            params: { fileName: targetFileName, contentType: planoPdf.type || 'application/pdf' },
           })
           .then((r) => r.data.data);
 
@@ -35,7 +41,9 @@ export const obrasService = {
         try {
           const formData = new FormData();
           formData.append('file', planoPdf);
-          const uploadRes = await api.post<ApiResponse<{ fileUrl: string }>>('/obras/upload', formData).then((r) => r.data.data);
+          const uploadRes = await api
+            .post<ApiResponse<{ fileUrl: string }>>(`/obras/upload?fileName=${encodeURIComponent(targetFileName)}`, formData)
+            .then((r) => r.data.data);
           finalPayload.planoPdf = uploadRes.fileUrl;
         } catch (fallbackError) {
           console.error('All file upload mechanisms failed:', fallbackError);
@@ -51,10 +59,16 @@ export const obrasService = {
     const finalPayload: Partial<Obra> = { ...data };
 
     if (planoPdf) {
+      const atClean = (data.at || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const obraClean = (data.obra || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const targetFileName = atClean && obraClean
+        ? `${atClean}_${obraClean}.pdf`
+        : (atClean || obraClean ? `${atClean || obraClean}.pdf` : planoPdf.name);
+
       try {
         const presigned = await api
           .get<ApiResponse<{ uploadUrl: string; fileUrl: string }>>('/obras/upload-url', {
-            params: { fileName: planoPdf.name, contentType: planoPdf.type || 'application/pdf' },
+            params: { fileName: targetFileName, contentType: planoPdf.type || 'application/pdf' },
           })
           .then((r) => r.data.data);
 
@@ -68,7 +82,9 @@ export const obrasService = {
         try {
           const formData = new FormData();
           formData.append('file', planoPdf);
-          const uploadRes = await api.post<ApiResponse<{ fileUrl: string }>>('/obras/upload', formData).then((r) => r.data.data);
+          const uploadRes = await api
+            .post<ApiResponse<{ fileUrl: string }>>(`/obras/upload?fileName=${encodeURIComponent(targetFileName)}`, formData)
+            .then((r) => r.data.data);
           finalPayload.planoPdf = uploadRes.fileUrl;
         } catch (fallbackError) {
           console.error('All file upload mechanisms failed:', fallbackError);

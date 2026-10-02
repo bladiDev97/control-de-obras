@@ -22,6 +22,7 @@ export interface Obra {
   municipio?: string;
   area?: string;
   nombreArea?: string;
+  zona?: string;
   fechaProgramada?: string;
   fechaPago?: string;
   fechaAut?: string;

@@ -35,6 +35,20 @@ export class ObrasVencidasCron {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // 1. Si la obra tiene fechaFinConstruccion (Fecha Definitiva de Término / Límite)
+    if (obra.fechaFinConstruccion && obra.fechaFinConstruccion.trim() !== '') {
+      try {
+        const limitDate = this.parseLocalDate(obra.fechaFinConstruccion);
+        if (!isNaN(limitDate.getTime())) {
+          limitDate.setHours(0, 0, 0, 0);
+          const diffTime = limitDate.getTime() - today.getTime();
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+      } catch {
+        // fallback
+      }
+    }
+
     const tipo = (obra.tipoObra || '').toUpperCase();
     const isSseebra = tipo === 'SSEEBRA' || tipo === 'APORTACIONES';
 
@@ -124,9 +138,7 @@ export class ObrasVencidasCron {
     const activas = obras.filter(o => 
       o.estatus !== 'CAPITALIZADA' && 
       o.estatus !== 'TERMINADA' && 
-      (o.estatus as string) !== 'CANCELADA' &&
-      !o.fechaTerminoCampo &&
-      !o.fechaFinConstruccion
+      (o.estatus as string) !== 'CANCELADA'
     );
 
     for (const obra of activas) {

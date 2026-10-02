@@ -7,7 +7,10 @@ import {
   Button,
   Box,
   Grid,
-  IconButton
+  IconButton,
+  FormControlLabel,
+  Switch,
+  Typography
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PrintIcon from '@mui/icons-material/Print';
@@ -51,6 +54,10 @@ interface OficioPreviewDialogProps {
 
   zonaFooterStr: string;
   zonaLocationStr: string;
+
+  incluirFirmaDigital?: boolean;
+  setIncluirFirmaDigital?: (v: boolean) => void;
+  supervisorFirmaUrl?: string;
 }
 
 export const OficioPreviewDialog: React.FC<OficioPreviewDialogProps> = ({
@@ -67,7 +74,10 @@ export const OficioPreviewDialog: React.FC<OficioPreviewDialogProps> = ({
   mostrarAdmin, setMostrarAdmin,
   mostrarContratista, setMostrarContratista,
   contratistaNombre, contratistaDomicilio, superintendenteNombre,
-  zonaFooterStr, zonaLocationStr
+  zonaFooterStr, zonaLocationStr,
+  incluirFirmaDigital = false,
+  setIncluirFirmaDigital,
+  supervisorFirmaUrl
 }) => {
   if (!previewData) return null;
 
@@ -172,7 +182,8 @@ export const OficioPreviewDialog: React.FC<OficioPreviewDialogProps> = ({
 
               ${mostrarSupervisor ? `
               <div class="signature-section">
-                <div style="font-weight: bold; margin-bottom: 30px; letter-spacing: 2px; font-size: 13px;">A t e n t a m e n t e</div>
+                <div style="font-weight: bold; margin-bottom: 8px; letter-spacing: 2px; font-size: 13px;">A t e n t a m e n t e</div>
+                ${incluirFirmaDigital && supervisorFirmaUrl ? `<div style="margin-bottom: 4px;"><img src="${supervisorFirmaUrl}" style="max-height: 70px; max-width: 180px; object-fit: contain;" /></div>` : '<div style="height: 35px;"></div>'}
                 <div style="font-weight: bold; font-size: 13px;">${supervisorNombre}</div>
                 <div style="font-size: 13px;">${supervisorCargo}</div>
                 <div>${supervisorZona}</div>
@@ -313,8 +324,20 @@ export const OficioPreviewDialog: React.FC<OficioPreviewDialogProps> = ({
                     </Box>
 
                     {mostrarSupervisor && (
-                      <Box sx={{ textAlign: 'center', mt: 'auto', mb: 'calc(16px + 3cm)' }}>
-                        <Box sx={{ fontWeight: 'bold', mb: 4, letterSpacing: '2px', fontSize: '13px' }}>A t e n t a m e n t e</Box>
+                      <Box sx={{ textAlign: 'center', mt: 'auto', mb: 'calc(16px + 2cm)' }}>
+                        <Box sx={{ fontWeight: 'bold', mb: 1, letterSpacing: '2px', fontSize: '13px' }}>A t e n t a m e n t e</Box>
+                        {incluirFirmaDigital && supervisorFirmaUrl ? (
+                          <Box sx={{ mb: 1, display: 'flex', justifyContent: 'center' }}>
+                            <Box
+                              component="img"
+                              src={supervisorFirmaUrl}
+                              alt="Firma Supervisor"
+                              sx={{ maxHeight: 70, maxWidth: 180, objectFit: 'contain' }}
+                            />
+                          </Box>
+                        ) : (
+                          <Box sx={{ height: 35 }} />
+                        )}
                         <Box sx={{ fontWeight: 'bold', fontSize: '13px' }}>{supervisorNombre}</Box>
                         <Box sx={{ fontSize: '13px' }}>{supervisorCargo}</Box>
                         <Box sx={{ fontSize: '13px' }}>{supervisorZona}</Box>
@@ -333,16 +356,35 @@ export const OficioPreviewDialog: React.FC<OficioPreviewDialogProps> = ({
           </Grid>
         </Grid>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} color="inherit">Cancelar</Button>
-        <Button
-          onClick={handlePrint}
-          variant="contained"
-          color="primary"
-          startIcon={<PrintIcon />}
-        >
-          Imprimir Documento
-        </Button>
+      <DialogActions sx={{ px: 3, py: 1.5, justifyContent: 'space-between' }}>
+        {setIncluirFirmaDigital !== undefined && (
+          <FormControlLabel
+            control={
+              <Switch
+                checked={!!incluirFirmaDigital}
+                onChange={(e) => setIncluirFirmaDigital(e.target.checked)}
+                color="success"
+                size="small"
+              />
+            }
+            label={
+              <Typography variant="body2" fontWeight="bold" sx={{ color: '#166534' }}>
+                Habilitar Firma Digital
+              </Typography>
+            }
+          />
+        )}
+        <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+          <Button onClick={onClose} color="inherit">Cancelar</Button>
+          <Button
+            onClick={handlePrint}
+            variant="contained"
+            color="primary"
+            startIcon={<PrintIcon />}
+          >
+            Imprimir Documento
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

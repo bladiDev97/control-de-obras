@@ -101,17 +101,16 @@ export default function ReusableTable<T extends Record<string, any>>({
   // Helper to classify row color(s) for the COLOR: filter dropdown (based on DAYS / POR VENCER badge & text colors)
   const getRowColors = (row: any): string[] => {
     const colors: string[] = [];
-    const hasFechaTerminoCampo = !!(row.fechaTerminoCampo && String(row.fechaTerminoCampo).trim() !== '');
+    const hasFechaFinConstruccion = !!(row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '');
 
     // 1. Check POR VENCER badge colors if applicable
     if (
       typeof row.diasParaVencerse === 'number' &&
-      !hasFechaTerminoCampo &&
       row.estatus !== 'CAPITALIZADA' &&
       row.estatus !== 'TERMINADA'
     ) {
       const days = row.diasParaVencerse;
-      if (days >= 0 && days <= 3) {
+      if (days <= 3) {
         if (!colors.includes('ROJO')) colors.push('ROJO');
       } else if (days >= 4 && days <= 10) {
         if (!colors.includes('NARANJA')) colors.push('NARANJA');
@@ -138,7 +137,7 @@ export default function ReusableTable<T extends Record<string, any>>({
     // 3. Status fallback if no days colors matched
     if (colors.length === 0) {
       if (row.estatus === 'CAPITALIZADA') {
-        if (!hasFechaTerminoCampo) {
+        if (!hasFechaFinConstruccion) {
           colors.push('ROJO');
         } else {
           colors.push('VERDE');

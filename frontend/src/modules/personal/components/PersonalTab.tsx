@@ -14,10 +14,13 @@ import {
   IconButton,
   Tooltip,
   MenuItem,
+  Chip,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ReusableTable, { Column } from '../../../components/Table/ReusableTable';
 import { personalService } from '../services/personal.service';
 import { Personal } from '../types/personal.types';
@@ -38,6 +41,7 @@ export const PersonalTab: React.FC = () => {
     cargo: '',
     correo: '',
     zona: 'Zona Pátzcuaro',
+    firmaUrl: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -111,6 +115,7 @@ export const PersonalTab: React.FC = () => {
       cargo: '',
       correo: '',
       zona: 'Zona Pátzcuaro',
+      firmaUrl: '',
     });
     setErrors({});
     setOpenModal(true);
@@ -118,9 +123,51 @@ export const PersonalTab: React.FC = () => {
 
   const handleOpenEdit = (item: Personal) => {
     setIsEdit(true);
-    setForm({ ...item });
+    setForm({ ...item, firmaUrl: item.firmaUrl || '' });
     setErrors({});
     setOpenModal(true);
+  };
+
+  const handleSignatureFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const resizedDataUrl = canvas.toDataURL('image/png');
+          setForm((prev) => ({ ...prev, firmaUrl: resizedDataUrl }));
+        }
+      };
+      if (event.target?.result) {
+        img.src = event.target.result as string;
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDelete = async (rpe: string) => {
@@ -170,6 +217,7 @@ export const PersonalTab: React.FC = () => {
       cargo: form.cargo,
       correo: form.correo,
       zona: form.zona || '',
+      firmaUrl: form.firmaUrl || '',
     };
 
     try {
@@ -201,6 +249,31 @@ export const PersonalTab: React.FC = () => {
     { key: 'cargo', label: 'Cargo o Rol', align: 'left' },
     { key: 'zona', label: 'Zona', align: 'left' },
     { key: 'correo', label: 'Correo', align: 'left' },
+    {
+      key: 'firmaUrl',
+      label: 'Firma Digital',
+      align: 'center',
+      render: (row) => (
+        row.firmaUrl ? (
+          <Box
+            component="img"
+            src={row.firmaUrl}
+            alt="Firma"
+            sx={{
+              maxHeight: 36,
+              maxWidth: 90,
+              objectFit: 'contain',
+              border: '1px solid #e2e8f0',
+              borderRadius: '4px',
+              p: '2px',
+              backgroundColor: '#fff'
+            }}
+          />
+        ) : (
+          <Chip label="Sin firma" size="small" variant="outlined" sx={{ fontSize: '0.7rem', color: '#94a3b8' }} />
+        )
+      ),
+    },
     {
       key: 'rpe',
       label: 'Acciones',
@@ -397,6 +470,75 @@ export const PersonalTab: React.FC = () => {
                     </MenuItem>
                   ))}
                 </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <Box
+                  sx={{
+                    border: '1px dashed #cbd5e1',
+                    borderRadius: 2,
+                    p: 2,
+                    textAlign: 'center',
+                    backgroundColor: '#f8fafc',
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight="bold" sx={{ color: 'var(--color-secondary)', mb: 1 }}>
+                    Firma Digital (Imagen)
+                  </Typography>
+                  {form.firmaUrl ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        component="img"
+                        src={form.firmaUrl}
+                        alt="Firma Digital"
+                        sx={{
+                          maxHeight: 80,
+                          maxWidth: 220,
+                          objectFit: 'contain',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 1,
+                          p: 1,
+                          backgroundColor: '#fff',
+                        }}
+                      />
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<DeleteOutlineIcon />}
+                        onClick={() => setForm({ ...form, firmaUrl: '' })}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        Quitar Firma
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Box>
+                      <Typography variant="caption" display="block" sx={{ color: '#64748b', mb: 1 }}>
+                        Cargue la imagen de la firma del trabajador (Formato PNG transparente recomendado)
+                      </Typography>
+                      <Button
+                        component="label"
+                        variant="outlined"
+                        startIcon={<CloudUploadIcon />}
+                        size="small"
+                        sx={{
+                          borderColor: 'var(--color-primary)',
+                          color: 'var(--color-primary)',
+                          textTransform: 'none',
+                          borderRadius: '8px',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        Subir Imagen de Firma
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={handleSignatureFileChange}
+                        />
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
               </Grid>
             </Grid>
           </Box>

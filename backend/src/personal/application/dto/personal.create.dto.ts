@@ -36,4 +36,9 @@ export class PersonalCreateDto {
   @IsString()
   @IsOptional()
   zona?: string;
+
+  @ApiPropertyOptional({ description: 'URL o Base64 de la firma digital' })
+  @IsString()
+  @IsOptional()
+  firmaUrl?: string;
 }

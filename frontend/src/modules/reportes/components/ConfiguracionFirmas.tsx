@@ -39,6 +39,9 @@ interface ConfiguracionFirmasProps {
 
   superintendenteNombre?: string;
   setSuperintendenteNombre?: (v: string) => void;
+
+  incluirFirmaDigital?: boolean;
+  setIncluirFirmaDigital?: (v: boolean) => void;
 }
 
 export const ConfiguracionFirmas: React.FC<ConfiguracionFirmasProps> = ({
@@ -58,10 +61,30 @@ export const ConfiguracionFirmas: React.FC<ConfiguracionFirmasProps> = ({
   hideAdmin = false,
   hideContratista = false,
   superintendenteNombre,
-  setSuperintendenteNombre
+  setSuperintendenteNombre,
+  incluirFirmaDigital = false,
+  setIncluirFirmaDigital
 }) => {
   return (
     <Box>
+      {setIncluirFirmaDigital !== undefined && (
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={!!incluirFirmaDigital}
+                onChange={(e) => setIncluirFirmaDigital(e.target.checked)}
+                color="success"
+              />
+            }
+            label={
+              <Typography variant="body2" fontWeight="bold" sx={{ color: '#166534' }}>
+                Incluir Firma Digital (Imagen)
+              </Typography>
+            }
+          />
+        </Box>
+      )}
       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
         Supervisión de Obra
       </Typography>

@@ -55,12 +55,15 @@ export default function ReportesPage() {
 
   // Custom signature configuration states
   const [usarReglaConciliacion, setUsarReglaConciliacion] = useState(true);
+  const [incluirFirmaDigital, setIncluirFirmaDigital] = useState(true);
   const [supervisorNombre, setSupervisorNombre] = useState('MARCOS BLADIMIR ROMERO PÉREZ');
   const [supervisorRpe, setSupervisorRpe] = useState('9NGB3');
+  const [supervisorFirmaUrl, setSupervisorFirmaUrl] = useState('');
   const [mostrarSupervisor, setMostrarSupervisor] = useState(true);
 
   const [adminNombre, setAdminNombre] = useState('EUGENIO HEREDIA CHÁVEZ');
   const [adminRpe, setAdminRpe] = useState('9048U');
+  const [adminFirmaUrl, setAdminFirmaUrl] = useState('');
   const [mostrarAdmin, setMostrarAdmin] = useState(true);
 
   const [supervisorCargo, setSupervisorCargo] = useState('Supervisor de Obra');
@@ -98,6 +101,9 @@ export default function ReportesPage() {
           setSupervisorRpe(supervisor.rpe);
           setSupervisorCargo(supervisor.cargo);
           setSupervisorZona(supervisor.zona || 'Constructora Zona Pátzcuaro');
+          if (supervisor.firmaUrl) {
+            setSupervisorFirmaUrl(supervisor.firmaUrl);
+          }
         }
         
         const admin = personnel.find(p => p.cargo.toLowerCase().includes('administrador'));
@@ -106,6 +112,9 @@ export default function ReportesPage() {
           setAdminRpe(admin.rpe);
           setAdminCargo(admin.cargo);
           setAdminZona(admin.zona || 'Zona Pátzcuaro');
+          if (admin.firmaUrl) {
+            setAdminFirmaUrl(admin.firmaUrl);
+          }
         }
       } catch (err) {
         console.error('Error cargando datos para reportes:', err);
@@ -246,7 +255,11 @@ export default function ReportesPage() {
       const printWindow = window.open('', '_blank');
       if (!printWindow) return;
 
-      const dateText = formatLongDate(type === 'oficio' ? detail.fechaAsignacion : new Date().toISOString().slice(0, 10));
+      const fechaConciliacion = getFechaConciliacion(detail.fechaCapitalizacion, detail.fechaTerminoCampo, usarReglaConciliacion);
+      const fechaConciliacionText = formatLongDate(fechaConciliacion || detail.fechaCapitalizacion);
+      const dateText = type === 'oficio'
+        ? formatLongDate(detail.fechaAsignacion)
+        : fechaConciliacionText;
       const limitDateText = formatLongDate(detail.fechaFinConstruccion);
       const consecutivo = detail.numeroOficio 
         ? detail.numeroOficio
@@ -271,9 +284,6 @@ export default function ReportesPage() {
       const atRetiro = detail.atRetiro || '-';
       const siadRetiro = detail.siadRetiro || '-';
       const or = detail.ordenRetiro || '-';
-
-      const fechaConciliacion = getFechaConciliacion(detail.fechaCapitalizacion, detail.fechaTerminoCampo, usarReglaConciliacion);
-      const fechaConciliacionText = formatLongDate(fechaConciliacion || detail.fechaCapitalizacion);
 
       printWindow.document.write(`
         <html>
@@ -456,7 +466,7 @@ export default function ReportesPage() {
               <div class="right-meta">${consecutivo}</div>
               <div class="right-meta asunto" style="margin-top: 25px; margin-bottom: 25px;">Asunto: Conciliación de Obra</div>
               
-              <div class="date-line" style="margin-bottom: 30px;">Pátzcuaro, Mich., a ${dateText}.</div>
+              <div class="date-line" style="text-align: right; margin-bottom: 30px;">${zonaLocationStr}, ${dateText}</div>
 
               <div class="recipient" style="margin-bottom: 30px;">
                 <div class="recipient-name">${adminNombre.toUpperCase()}</div>
@@ -687,6 +697,18 @@ export default function ReportesPage() {
                   control={
                     <Switch
                       size="small"
+                      checked={incluirFirmaDigital}
+                      onChange={(e) => setIncluirFirmaDigital(e.target.checked)}
+                      color="success"
+                    />
+                  }
+                  label={<Typography sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#166534' }}>Firma Digital</Typography>}
+                  sx={{ m: 0 }}
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
                       checked={mostrarAdmin}
                       onChange={(e) => setMostrarAdmin(e.target.checked)}
                       color="primary"
@@ -748,6 +770,9 @@ export default function ReportesPage() {
           superintendenteNombre={superintendenteNombre}
           zonaFooterStr={zonaFooterStr}
           zonaLocationStr={zonaLocationStr}
+          incluirFirmaDigital={incluirFirmaDigital}
+          setIncluirFirmaDigital={setIncluirFirmaDigital}
+          supervisorFirmaUrl={supervisorFirmaUrl}
         />
       )}
 
@@ -772,6 +797,10 @@ export default function ReportesPage() {
           setSuperintendenteNombre={setSuperintendenteNombre}
           zonaFooterStr={zonaFooterStr}
           zonaLocationStr={zonaLocationStr}
+          incluirFirmaDigital={incluirFirmaDigital}
+          setIncluirFirmaDigital={setIncluirFirmaDigital}
+          supervisorFirmaUrl={supervisorFirmaUrl}
+          adminFirmaUrl={adminFirmaUrl}
         />
       )}
       

@@ -41,6 +41,7 @@ export class PersonalService {
       cargo: dto.cargo,
       correo: dto.correo,
       zona: dto.zona,
+      firmaUrl: dto.firmaUrl,
       isDelete: false,
     };
     const created = await this.personalRepository.personalCreate(personalData);
@@ -58,12 +59,13 @@ export class PersonalService {
       pk,
       sk: `personal#${dto.rpe}`,
       rpe: dto.rpe,
-      nombres: dto.nombres !== undefined ? dto.nombres : existing.nombres,
-      apellidoPaterno: dto.apellidoPaterno !== undefined ? dto.apellidoPaterno : existing.apellidoPaterno,
-      apellidoMaterno: dto.apellidoMaterno !== undefined ? dto.apellidoMaterno : existing.apellidoMaterno,
-      cargo: dto.cargo !== undefined ? dto.cargo : existing.cargo,
-      correo: dto.correo !== undefined ? dto.correo : existing.correo,
-      zona: dto.zona !== undefined ? dto.zona : existing.zona,
+      nombres: dto.nombres !== undefined ? dto.nombres : existing?.nombres,
+      apellidoPaterno: dto.apellidoPaterno !== undefined ? dto.apellidoPaterno : existing?.apellidoPaterno,
+      apellidoMaterno: dto.apellidoMaterno !== undefined ? dto.apellidoMaterno : existing?.apellidoMaterno,
+      cargo: dto.cargo !== undefined ? dto.cargo : existing?.cargo,
+      correo: dto.correo !== undefined ? dto.correo : existing?.correo,
+      zona: dto.zona !== undefined ? dto.zona : existing?.zona,
+      firmaUrl: dto.firmaUrl !== undefined ? dto.firmaUrl : existing?.firmaUrl,
     };
 
     const updated = await this.personalRepository.personalUpdate(personalData);

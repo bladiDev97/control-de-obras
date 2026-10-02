@@ -88,6 +88,9 @@ export class ObraEntity extends GenericEntity implements IObra {
   nombreArea?: string;
 
   @Attribute()
+  zona?: string;
+
+  @Attribute()
   fechaProgramada?: string;
 
   @Attribute()

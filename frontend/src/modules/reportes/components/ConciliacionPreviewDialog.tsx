@@ -53,6 +53,11 @@ interface ConciliacionPreviewDialogProps {
 
   zonaFooterStr: string;
   zonaLocationStr: string;
+
+  incluirFirmaDigital?: boolean;
+  setIncluirFirmaDigital?: (v: boolean) => void;
+  supervisorFirmaUrl?: string;
+  adminFirmaUrl?: string;
 }
 
 export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps> = ({
@@ -71,7 +76,11 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
   superintendenteNombre,
   setSuperintendenteNombre,
   zonaFooterStr, 
-  zonaLocationStr
+  zonaLocationStr,
+  incluirFirmaDigital = false,
+  setIncluirFirmaDigital,
+  supervisorFirmaUrl,
+  adminFirmaUrl
 }) => {
   const [usarReglaFecha, setUsarReglaFecha] = useState<boolean>(true);
 
@@ -80,7 +89,8 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
   const handlePrint = () => {
     if (!previewData) return;
     try {
-      const dateText = formatDateSpanish(new Date().toISOString().slice(0, 10));
+      const fechaConciliacionText = formatDateSpanish(getFechaConciliacion(previewData.fechaCapitalizacion, previewData.fechaTerminoCampo, usarReglaFecha));
+      const dateText = fechaConciliacionText;
       const consecutivo = previewData.numeroOficio
         ? previewData.numeroOficio
         : previewData.oficioConsecutivo 
@@ -97,8 +107,6 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
       const atRetiro = previewData.atRetiro || '-';
       const siadRetiro = previewData.siadRetiro || '-';
       const or = previewData.ordenRetiro || '-';
-
-      const fechaConciliacionText = formatDateSpanish(getFechaConciliacion(previewData.fechaCapitalizacion, previewData.fechaTerminoCampo, usarReglaFecha));
 
       const printHtml = `
         <html>
@@ -136,19 +144,21 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
                 Sin más por el momento, le envío un cordial saludo.
               </div>
               
-              <div style="display: flex; flex-direction: column; align-items: center; margin-top: auto; margin-bottom: calc(20px + 3cm); width: 100%;">
+              <div style="display: flex; flex-direction: column; align-items: center; margin-top: auto; margin-bottom: calc(20px + 2.5cm); width: 100%;">
                  ${mostrarSupervisor ? `
-                 <div style="text-align: center; margin-bottom: 50px; width: 100%;">
-                    <div style="font-weight: bold; margin-bottom: 30px; letter-spacing: 2px; font-size: 13px;">A t e n t a m e n t e</div>
-                   <div style="border-top: 1px solid #000; width: 220px; margin: 0 auto 5px auto;"></div>
-                   <div style="font-weight: bold; font-size: 11px;">${supervisorNombre}</div>
-                   <div style="font-size: 10px;">${supervisorCargo}</div>
+                 <div style="text-align: center; margin-bottom: 30px; width: 100%;">
+                    <div style="font-weight: bold; margin-bottom: 10px; letter-spacing: 2px; font-size: 13px;">A t e n t a m e n t e</div>
+                    ${incluirFirmaDigital && supervisorFirmaUrl ? `<div style="margin-bottom: 2px;"><img src="${supervisorFirmaUrl}" style="max-height: 60px; max-width: 180px; object-fit: contain;" /></div>` : ''}
+                    <div style="border-top: 1px solid #000; width: 220px; margin: 0 auto 5px auto;"></div>
+                    <div style="font-weight: bold; font-size: 11px;">${supervisorNombre}</div>
+                    <div style="font-size: 10px;">${supervisorCargo}</div>
                  </div>
                  ` : ''}
 
                  <div style="display: flex; justify-content: space-between; width: 100%;">
                    ${mostrarAdmin ? `
                    <div style="text-align: center; width: 45%;">
+                     ${incluirFirmaDigital && adminFirmaUrl ? `<div style="margin-bottom: 2px;"><img src="${adminFirmaUrl}" style="max-height: 55px; max-width: 160px; object-fit: contain;" /></div>` : ''}
                      <div style="border-top: 1px solid #000; width: 180px; margin: 0 auto 5px auto;"></div>
                      <div style="font-weight: bold; font-size: 11px;">${adminNombre}</div>
                      <div style="font-size: 10px;">${adminCargo}</div>
@@ -295,19 +305,29 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
                   </Box>
 
                   {/* Firmas Conciliacion */}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 'auto', mb: 'calc(16px + 3cm)', width: '100%' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 'auto', mb: 'calc(16px + 2.5cm)', width: '100%' }}>
                     {mostrarSupervisor && (
-                      <Box sx={{ textAlign: 'center', mb: '50px', width: '100%' }}>
-                        <Box sx={{ fontWeight: 'bold', mb: 4, letterSpacing: '2px', fontSize: '13px' }}>A t e n t a m e n t e</Box>
+                      <Box sx={{ textAlign: 'center', mb: '30px', width: '100%' }}>
+                        <Box sx={{ fontWeight: 'bold', mb: 1, letterSpacing: '2px', fontSize: '13px' }}>A t e n t a m e n t e</Box>
+                        {incluirFirmaDigital && supervisorFirmaUrl ? (
+                          <Box sx={{ mb: 0.5, display: 'flex', justifyContent: 'center' }}>
+                            <Box component="img" src={supervisorFirmaUrl} alt="Firma Supervisor" sx={{ maxHeight: 60, maxWidth: 180, objectFit: 'contain' }} />
+                          </Box>
+                        ) : null}
                         <Box sx={{ borderTop: '1px solid #000', width: '220px', margin: '0 auto 5px auto' }} />
                         <Box sx={{ fontWeight: 'bold', fontSize: '11px' }}>{supervisorNombre}</Box>
                         <Box sx={{ fontSize: '11px' }}>{supervisorCargo}</Box>
                       </Box>
                     )}
 
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'flex-start' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'flex-end' }}>
                       {mostrarAdmin && (
                         <Box sx={{ textAlign: 'center', width: '45%' }}>
+                          {incluirFirmaDigital && adminFirmaUrl ? (
+                            <Box sx={{ mb: 0.5, display: 'flex', justifyContent: 'center' }}>
+                              <Box component="img" src={adminFirmaUrl} alt="Firma Admin" sx={{ maxHeight: 55, maxWidth: 160, objectFit: 'contain' }} />
+                            </Box>
+                          ) : null}
                           <Box sx={{ borderTop: '1px solid #000', width: '180px', margin: '0 auto 5px auto' }} />
                           <Box sx={{ fontWeight: 'bold', fontSize: '11px' }}>{adminNombre}</Box>
                           <Box sx={{ fontSize: '11px' }}>{adminCargo}</Box>
@@ -336,15 +356,35 @@ export const ConciliacionPreviewDialog: React.FC<ConciliacionPreviewDialogProps>
         </Grid>
       </DialogContent>
       <DialogActions sx={{ p: 2, borderTop: '1px solid #ddd', backgroundColor: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Button
-          size="small"
-          variant={usarReglaFecha ? "contained" : "outlined"}
-          color={usarReglaFecha ? "success" : "warning"}
-          onClick={() => setUsarReglaFecha(!usarReglaFecha)}
-          sx={{ borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'none' }}
-        >
-          {usarReglaFecha ? '⚡ Regla Fecha (+19d): ACTIVADA' : '📅 Usar Fecha de Hoy'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Button
+            size="small"
+            variant={usarReglaFecha ? "contained" : "outlined"}
+            color={usarReglaFecha ? "success" : "warning"}
+            onClick={() => setUsarReglaFecha(!usarReglaFecha)}
+            sx={{ borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'none' }}
+          >
+            {usarReglaFecha ? '⚡ Regla Fecha (+19d): ACTIVADA' : '📅 Usar Fecha de Hoy'}
+          </Button>
+
+          {setIncluirFirmaDigital !== undefined && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!incluirFirmaDigital}
+                  onChange={(e) => setIncluirFirmaDigital(e.target.checked)}
+                  color="success"
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" fontWeight="bold" sx={{ color: '#166534' }}>
+                  Habilitar Firma Digital
+                </Typography>
+              }
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button onClick={onClose} variant="outlined" color="inherit">
             Cancelar

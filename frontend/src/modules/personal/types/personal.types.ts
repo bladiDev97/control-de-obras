@@ -7,4 +7,5 @@ export interface Personal {
   cargo: string;
   correo: string;
   zona?: string;
+  firmaUrl?: string;
 }

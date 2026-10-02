@@ -1,9 +1,19 @@
-import { IsString, IsNotEmpty } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ObrasTerminarDto {
-  @ApiProperty({ example: '2026-06-27', description: 'Fecha de término en campo' })
+  @ApiPropertyOptional({ example: '2026-06-27', description: 'Fecha de término en campo' })
   @IsString()
-  @IsNotEmpty()
-  fechaTerminoCampo: string;
+  @IsOptional()
+  fechaTerminoCampo?: string;
+
+  @ApiPropertyOptional({ example: '2026-06-27', description: 'Fecha de término (Fin de Construcción)' })
+  @IsString()
+  @IsOptional()
+  fechaFinConstruccion?: string;
+
+  @ApiPropertyOptional({ example: '2026-06-27', description: 'Fecha de término (Alias)' })
+  @IsString()
+  @IsOptional()
+  fechaTermino?: string;
 }

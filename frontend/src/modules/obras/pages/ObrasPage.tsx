@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Button, TextField, Typography, MenuItem, FormControlLabel, Switch, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Button, TextField, Typography, MenuItem, FormControlLabel, Switch, Dialog, DialogTitle, DialogContent, DialogActions, IconButton } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import BusinessIcon from '@mui/icons-material/Business';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import PersonIcon from '@mui/icons-material/Person';
 import { useObras } from '../hooks/useObras';
 import { obrasService, areasService } from '../services/obras.service';
 import { contratosService } from '../../contratos/services/contratos.service';
@@ -26,21 +36,22 @@ const formatDateForInput = (val?: string): string => {
 };
 
 const getPlanoUrl = (url?: string) => {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-  const cleanPath = url.replace(/^\//, '');
-  return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${cleanPath}`;
+  if (!url) return '#';
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  return `${apiBase}/obras/plano-view?url=${encodeURIComponent(url)}`;
 };
 
 export default function ObrasPage() {
   const { obras, loading, refetch } = useObras();
   const [selected, setSelected] = useState<Obra | null>(null);
   const [previewObra, setPreviewObra] = useState<Obra | null>(null);
-  const [fechaTermino, setFechaTermino] = useState<string>(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [terminarForm, setTerminarForm] = useState<{
+    fechaTerminoCampo: string;
+    fechaFinConstruccion: string;
+  }>({
+    fechaTerminoCampo: '',
+    fechaFinConstruccion: '',
+  });
 
   // Contracts list state
   const [contratos, setContratos] = useState<any[]>([]);
@@ -294,7 +305,10 @@ export default function ObrasPage() {
             setPlanoPdf(null);
           } else if (row.estatus === 'ASIGNADA') {
             setSelected(row);
-            setFechaTermino(new Date().toISOString().slice(0, 10));
+            setTerminarForm({
+              fechaTerminoCampo: formatDateForInput(row.fechaTerminoCampo || ''),
+              fechaFinConstruccion: formatDateForInput((row as any).fechaFinConstruccion || (row as any).fechaTermino || ''),
+            });
           }
         };
 
@@ -329,8 +343,8 @@ export default function ObrasPage() {
       label: 'POR VENCER',
       width: '10%',
       render: (row: any) => {
-        // Para obras ya concluidas (con fecha de término, capitalizadas o terminadas), poner vacío / guión
-        if (row.fechaTerminoCampo || row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA' || (row as any).fechaFinConstruccion) {
+        // Para obras ya concluidas (capitalizadas o terminadas en campo), poner guión
+        if (row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA') {
           return <span style={{ color: '#9ca3af', fontWeight: 600 }}>-</span>;
         }
 
@@ -339,8 +353,8 @@ export default function ObrasPage() {
         let fg = '#15803d';
         let border = '1px solid #86efac';
 
-        if (days >= 0 && days <= 3) {
-          bg = '#fee2e2'; // Rojo (0 a 3 días)
+        if (days <= 3) {
+          bg = '#fee2e2'; // Rojo (<= 3 días o vencidos)
           fg = '#dc2626';
           border = '1px solid #fca5a5';
         } else if (days >= 4 && days <= 10) {
@@ -363,7 +377,7 @@ export default function ObrasPage() {
               whiteSpace: 'nowrap'
             }}
           >
-            {days} {days === 1 ? 'día' : 'días'}
+            {days} {Math.abs(days) === 1 ? 'día' : 'días'}
           </span>
         );
       },
@@ -422,6 +436,39 @@ export default function ObrasPage() {
           </span>
         );
       }
+    },
+    {
+      key: 'planoPdf' as any,
+      label: 'PLANO',
+      width: '6%',
+      render: (row) => {
+        if (!row.planoPdf) return <span style={{ color: '#9ca3af' }}>-</span>;
+        return (
+          <a
+            href={getPlanoUrl(row.planoPdf)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              color: '#059669',
+              fontWeight: 700,
+              fontSize: '0.7rem',
+              textDecoration: 'none',
+              backgroundColor: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              padding: '2px 6px',
+              borderRadius: '6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              whiteSpace: 'nowrap'
+            }}
+            title="Ver Plano PDF"
+          >
+            📄 PDF
+          </a>
+        );
+      }
     }
   ];
 
@@ -429,7 +476,11 @@ export default function ObrasPage() {
   const handleConfirmTerminar = async () => {
     if (!selected) return;
     try {
-      await obrasService.terminar(selected.id, fechaTermino);
+      await obrasService.terminar(
+        selected.id,
+        terminarForm.fechaTerminoCampo || undefined,
+        terminarForm.fechaFinConstruccion || undefined,
+      );
       setSelected(null);
       refetch();
     } catch (err) {
@@ -460,6 +511,7 @@ export default function ObrasPage() {
       }
 
       const cleanPayload: any = {
+        obra: currentAssigning.obra,
         ...payload,
         diasObraAPORTACIONES: payload.diasObraAPORTACIONES ? Number(payload.diasObraAPORTACIONES) : undefined,
       };
@@ -528,6 +580,8 @@ export default function ObrasPage() {
       });
 
       cleanPayload.solicitudPo = editForm.solicitudPo || currentEditing.solicitudPo;
+      if (!cleanPayload.obra && currentEditing.obra) cleanPayload.obra = currentEditing.obra;
+      if (!cleanPayload.at && currentEditing.at) cleanPayload.at = currentEditing.at;
 
       await obrasService.update(cleanPayload as any, currentPdf || undefined);
       await refetch();
@@ -611,9 +665,24 @@ export default function ObrasPage() {
 
   // 2. Días por vencer (Días restantes antes del límite)
   const calculateDiasParaVencerse = (row: Obra): number => {
-    // Si la obra ya está concluida o capitalizada, no aplica plazo de vencimiento
-    if (row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA' || (row as any).fechaTerminoCampo) {
+    // Si la obra ya está concluida en campo o capitalizada, no aplica plazo de vencimiento
+    if (row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA') {
       return 0;
+    }
+
+    // 1. Si existe fechaFinConstruccion (Fecha Definitiva de Término / Límite de Término)
+    const rawFinConst = (row as any).fechaFinConstruccion;
+    if (rawFinConst && String(rawFinConst).trim() !== '') {
+      try {
+        const limitDate = parseLocalDate(rawFinConst);
+        if (!isNaN(limitDate.getTime())) {
+          limitDate.setHours(0, 0, 0, 0);
+          const diffTime = limitDate.getTime() - today.getTime();
+          return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+      } catch {
+        // fallback
+      }
     }
 
     const tipo = (row.tipoObra || '').toUpperCase();
@@ -625,14 +694,12 @@ export default function ObrasPage() {
       try {
         const pagoDate = parseLocalDate(rawPago);
         if (isNaN(pagoDate.getTime())) return 0;
-        // En SSEEBRA puede ser de 28 días o de 9 días (por defecto 9 si no especifica)
         const diasSseebra = Number((row as any).diasObraAPORTACIONES) || 9;
         const limitDate = new Date(pagoDate);
         limitDate.setDate(limitDate.getDate() + diasSseebra);
         limitDate.setHours(0, 0, 0, 0);
         const diffTime = limitDate.getTime() - today.getTime();
-        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return daysLeft < 0 ? 0 : daysLeft;
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       } catch {
         return 0;
       }
@@ -645,8 +712,7 @@ export default function ObrasPage() {
         if (isNaN(progDate.getTime())) return 0;
         progDate.setHours(0, 0, 0, 0);
         const diffTime = progDate.getTime() - today.getTime();
-        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return daysLeft < 0 ? 0 : daysLeft;
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       } catch {
         return 0;
       }
@@ -713,21 +779,33 @@ export default function ObrasPage() {
         <ReusableTable columns={columns} rows={processedObras} customSort={customSortObras} />
       )}
 
-      {/* Modal para Terminar Obra */}
+      {/* Modal para Terminar / Registrar Término de Obra */}
       <ReusableModal
         open={!!selected}
-        title="Terminar Obra en Campo"
+        title={`Registrar Término - ${selected?.solicitudPo || selected?.obra || ''}`}
         onClose={() => setSelected(null)}
         onConfirm={handleConfirmTerminar}
+        confirmLabel="Guardar"
       >
-        <div style={{ marginTop: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
           <TextField
             label="Fecha Término en Campo"
             type="date"
             size="small"
             InputLabelProps={{ shrink: true }}
-            value={fechaTermino}
-            onChange={(e) => setFechaTermino(e.target.value)}
+            value={terminarForm.fechaTerminoCampo}
+            onChange={(e) => setTerminarForm({ ...terminarForm, fechaTerminoCampo: e.target.value })}
+            helperText="Fecha en que se concluyeron los trabajos físicos en campo."
+            fullWidth
+          />
+          <TextField
+            label="Fecha de Término (Fin de Construcción)"
+            type="date"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={terminarForm.fechaFinConstruccion}
+            onChange={(e) => setTerminarForm({ ...terminarForm, fechaFinConstruccion: e.target.value })}
+            helperText="Al capturar la Fecha de Término, la obra pasará a estatus TERMINADA."
             fullWidth
           />
         </div>
@@ -1000,198 +1078,685 @@ export default function ObrasPage() {
         fullWidth
         PaperProps={{
           style: {
-            borderRadius: '12px',
-            padding: '8px',
-          }
+            borderRadius: '20px',
+            boxShadow: '0 25px 60px -15px rgba(15, 23, 42, 0.25)',
+            overflow: 'hidden',
+            backgroundColor: '#ffffff',
+          },
         }}
       >
-        <DialogTitle style={{ fontWeight: 'bold', color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-          Detalles de la Obra: {previewObra?.solicitudPo}
-        </DialogTitle>
-        <DialogContent style={{ marginTop: '16px' }}>
-          {previewObra && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', fontSize: '0.9rem' }}>
-              <div>
-                <strong style={{ color: '#64748b' }}>Estatus:</strong>{' '}
-                <span style={{ fontWeight: '700', color: previewObra.estatus === 'CAPITALIZADA' ? '#008E60' : '#d97706' }}>
-                  {previewObra.estatus}
-                </span>
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>AT:</strong> {previewObra.at || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Obra / SIAD:</strong> {previewObra.obra || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Año:</strong> {previewObra.anio || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Tipo de Obra:</strong> {previewObra.tipoObra || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Activo:</strong> {previewObra.activo || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Orden:</strong> {previewObra.orden || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>RD (Población/Solicitante):</strong>{' '}
-                {(() => {
-                  const cleanPoblacion = ((previewObra as any).poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
-                  const cleanRd = (previewObra.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
-                  const poblacion = cleanPoblacion || cleanRd;
-                  const nombre = (previewObra.nombreSolicitante || '').trim();
-                  const parts = [poblacion, nombre].filter(Boolean).join(' ');
-                  return parts || cleanRd || previewObra.rd || '-';
-                })()}
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <strong style={{ color: '#64748b' }}>Nombre del Solicitante:</strong>{' '}
-                <div style={{ marginTop: '4px', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                  {previewObra.nombreSolicitante || '-'}
+        {previewObra && (
+          <>
+            {/* Header del Modal */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '20px 24px',
+                borderBottom: '1px solid #e2e8f0',
+                backgroundColor: '#ffffff',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    backgroundColor: '#eff6ff',
+                    border: '1px solid #dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#2563eb',
+                  }}
+                >
+                  <AssignmentIcon fontSize="medium" />
                 </div>
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Coordenada X (Longitud):</strong> {previewObra.coordenadaX || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Coordenada Y (Latitud):</strong> {previewObra.coordenadaY || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Contrato:</strong> {previewObra.contrato || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Contratista:</strong> {previewObra.contratista || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Área de Zona:</strong> {(previewObra as any).area || '-'}
-              </div>
-
-              {/* Campos de retiro condicionales */}
-              {((previewObra as any).atRetiro || (previewObra as any).ordenRetiro || (previewObra as any).siadRetiro) && (
-                <>
-                  <div style={{ gridColumn: 'span 2', borderTop: '1px solid #f1f5f9', paddingTop: '12px', marginTop: '4px' }}>
-                    <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>Detalles de Retiro</strong>
-                  </div>
-                  <div>
-                    <strong style={{ color: '#64748b' }}>AT de Retiro:</strong> {(previewObra as any).atRetiro || '-'}
-                  </div>
-                  <div>
-                    <strong style={{ color: '#64748b' }}>SIAD de Retiro:</strong> {(previewObra as any).siadRetiro || '-'}
-                  </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <strong style={{ color: '#64748b' }}>Orden de Retiro:</strong> {(previewObra as any).ordenRetiro || '-'}
-                  </div>
-                </>
-              )}
-
-              {/* Fechas Clave */}
-              <div style={{ gridColumn: 'span 2', borderTop: '1px solid #f1f5f9', paddingTop: '12px', marginTop: '4px' }}>
-                <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>Fechas Clave</strong>
-              </div>
-              {previewObra.tipoObra === 'APORTACIONES' ? (
-                <>
-                  <div>
-                    <strong style={{ color: '#64748b' }}>Fecha de Pago:</strong> {(previewObra as any).fechaPago || '-'}
-                  </div>
-                  <div>
-                    <strong style={{ color: '#64748b' }}>Días SSEEBRA:</strong> {(previewObra as any).diasObraAPORTACIONES || '-'}
-                  </div>
-                </>
-              ) : (
                 <div>
-                  <strong style={{ color: '#64748b' }}>Fecha Programada:</strong> {(previewObra as any).fechaProgramada || '-'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Typography style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0f172a', lineHeight: 1.2 }}>
+                      Detalles de la Obra
+                    </Typography>
+                    <span
+                      style={{
+                        backgroundColor: '#f1f5f9',
+                        color: '#0f172a',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        padding: '2px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                      }}
+                    >
+                      {previewObra.solicitudPo}
+                    </span>
+                  </div>
+                  <Typography style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                    Información detallada, fechas de pago y compromisos de ejecución
+                  </Typography>
                 </div>
-              )}
-              <div>
-                <strong style={{ color: '#64748b' }}>Fecha de Autorización:</strong> {(previewObra as any).fechaAut || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Fecha de Supervisión:</strong> {(previewObra as any).fechaSupervision || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Fecha de Asignación:</strong> {previewObra.fechaAsignacion || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Fecha Término en Campo:</strong> {previewObra.fechaTerminoCampo || '-'}
-              </div>
-              <div>
-                <strong style={{ color: '#64748b' }}>Fecha de Capitalización:</strong> {previewObra.fechaCapitalizacion || '-'}
               </div>
 
-              {/* Documentos Adjuntos */}
-              <div style={{ gridColumn: 'span 2', borderTop: '1px solid #f1f5f9', paddingTop: '12px', marginTop: '4px' }}>
-                <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>Planos y Archivos</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {(() => {
+                  const est = previewObra.estatus;
+                  let bg = '#f1f5f9';
+                  let fg = '#475569';
+                  let border = '#e2e8f0';
+                  if (est === 'CAPITALIZADA') {
+                    bg = '#ecfdf5'; fg = '#047857'; border = '#a7f3d0';
+                  } else if (est === 'TERMINADA') {
+                    bg = '#eff6ff'; fg = '#1d4ed8'; border = '#bfdbfe';
+                  } else if (est === 'ASIGNADA') {
+                    bg = '#fffbeb'; fg = '#b45309'; border = '#fde68a';
+                  } else if (est === 'PENDIENTE') {
+                    bg = '#f8fafc'; fg = '#64748b'; border = '#e2e8f0';
+                  }
+                  return (
+                    <span
+                      style={{
+                        backgroundColor: bg,
+                        color: fg,
+                        border: `1px solid ${border}`,
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        letterSpacing: '0.5px',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {est}
+                    </span>
+                  );
+                })()}
+
+                <IconButton
+                  size="small"
+                  onClick={() => setPreviewObra(null)}
+                  style={{ color: '#64748b', padding: '6px' }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
               </div>
-              <div style={{ gridColumn: 'span 2', display: 'flex', gap: '12px' }}>
+            </div>
+
+            {/* Contenido con scroll elegante */}
+            <DialogContent
+              style={{
+                padding: '20px 24px',
+                backgroundColor: '#f8fafc',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                maxHeight: 'calc(85vh - 130px)',
+              }}
+            >
+              {/* Tarjeta destacada: FECHA DE PAGO Y PLAZO */}
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '14px',
+                  padding: '16px 20px',
+                  boxShadow: '0 1px 3px 0 rgba(0,0,0,0.03)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <PaymentsIcon style={{ color: '#059669', fontSize: '1.25rem' }} />
+                    <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.92rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Información de Pago y Plazo
+                    </span>
+                  </div>
+                  {/* Badge de Días */}
+                  {(() => {
+                    const dias = (previewObra as any).diasObraAPORTACIONES;
+                    if (dias) {
+                      return (
+                        <span
+                          style={{
+                            backgroundColor: dias === 28 ? '#eff6ff' : '#fee2e2',
+                            color: dias === 28 ? '#1d4ed8' : '#dc2626',
+                            border: `1px solid ${dias === 28 ? '#bfdbfe' : '#fca5a5'}`,
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            fontWeight: 800,
+                            fontSize: '0.75rem',
+                          }}
+                        >
+                          Plazo: {dias} Días
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+                  {/* Fecha de Pago destacada */}
+                  <div
+                    style={{
+                      backgroundColor: (previewObra as any).fechaPago ? '#f0fdf4' : '#f8fafc',
+                      border: `1px solid ${(previewObra as any).fechaPago ? '#bbf7d0' : '#e2e8f0'}`,
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        backgroundColor: (previewObra as any).fechaPago ? '#dcfce7' : '#e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: (previewObra as any).fechaPago ? '#15803d' : '#94a3b8',
+                      }}
+                    >
+                      <PaymentsIcon fontSize="small" />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                        Fecha de Pago
+                      </span>
+                      <strong style={{ fontSize: '1rem', color: (previewObra as any).fechaPago ? '#15803d' : '#94a3b8' }}>
+                        {(previewObra as any).fechaPago || 'Sin registrar'}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Fecha de Asignación */}
+                  <div
+                    style={{
+                      backgroundColor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        backgroundColor: '#f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#475569',
+                      }}
+                    >
+                      <CalendarMonthIcon fontSize="small" />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                        Fecha de Asignación
+                      </span>
+                      <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>
+                        {previewObra.fechaAsignacion || 'Sin registrar'}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Fecha de Término / Límite */}
+                  <div
+                    style={{
+                      backgroundColor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        backgroundColor: '#f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#475569',
+                      }}
+                    >
+                      <CalendarMonthIcon fontSize="small" />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                        Fin Construcción / Término
+                      </span>
+                      <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>
+                        {previewObra.fechaFinConstruccion || (previewObra as any).fechaTermino || 'Sin registrar'}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid de 2 Columnas para Clasificación y Ubicación */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '16px' }}>
+                {/* Tarjeta: Clasificación e Identificadores */}
+                <div
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '14px',
+                    padding: '16px 20px',
+                    boxShadow: '0 1px 3px 0 rgba(0,0,0,0.03)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
+                    <BusinessIcon style={{ color: '#2563eb', fontSize: '1.2rem' }} />
+                    <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.88rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Identificación y Contrato
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', fontSize: '0.86rem' }}>
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>AT</span>
+                      <span style={{ fontWeight: 800, color: '#0f172a', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontFamily: 'monospace' }}>
+                        {previewObra.at || '-'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Obra / SIAD</span>
+                      <strong style={{ color: '#0f172a' }}>{previewObra.obra || '-'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Tipo de Obra</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                        <strong style={{ color: '#0f172a' }}>{previewObra.tipoObra || '-'}</strong>
+                        {((previewObra.tipoObra || '').toUpperCase() === 'SSEEBRA' || (previewObra.tipoObra || '').toUpperCase() === 'APORTACIONES') && (
+                          <span
+                            style={{
+                              backgroundColor: (previewObra as any).diasObraAPORTACIONES === 28 ? '#eff6ff' : '#fee2e2',
+                              color: (previewObra as any).diasObraAPORTACIONES === 28 ? '#1d4ed8' : '#dc2626',
+                              border: `1px solid ${(previewObra as any).diasObraAPORTACIONES === 28 ? '#bfdbfe' : '#fca5a5'}`,
+                              padding: '1px 6px',
+                              borderRadius: '8px',
+                              fontWeight: 800,
+                              fontSize: '0.65rem',
+                            }}
+                          >
+                            {(previewObra as any).diasObraAPORTACIONES || 9}D
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Año</span>
+                      <strong style={{ color: '#0f172a' }}>{previewObra.anio || '-'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Activo</span>
+                      <strong style={{ color: '#0f172a' }}>{previewObra.activo || '-'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Orden</span>
+                      <strong style={{ color: '#0f172a' }}>{previewObra.orden || '-'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Contrato</span>
+                      <strong style={{ color: '#0f172a' }}>{previewObra.contrato || '-'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Contratista</span>
+                      <strong style={{ color: '#0f172a' }}>{previewObra.contratista || '-'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Zona</span>
+                      <strong style={{ color: '#0f172a' }}>{(previewObra as any).zona || 'PATZCUARO'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Área</span>
+                      <strong style={{ color: '#0f172a' }}>{(previewObra as any).area || '-'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tarjeta: Solicitante y Ubicación */}
+                <div
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '14px',
+                    padding: '16px 20px',
+                    boxShadow: '0 1px 3px 0 rgba(0,0,0,0.03)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
+                    <PersonIcon style={{ color: '#6366f1', fontSize: '1.2rem' }} />
+                    <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.88rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Solicitante y Ubicación
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.86rem' }}>
+                    {/* Solicitante Destacado */}
+                    <div style={{ backgroundColor: '#f8fafc', padding: '10px 12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                        Nombre del Solicitante
+                      </span>
+                      <strong style={{ color: '#0f172a', fontSize: '0.92rem' }}>
+                        {previewObra.nombreSolicitante || '-'}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                        RD (Población / Solicitante)
+                      </span>
+                      <strong style={{ color: '#0f172a' }}>
+                        {(() => {
+                          const cleanPoblacion = ((previewObra as any).poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+                          const cleanRd = (previewObra.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
+                          const poblacion = cleanPoblacion || cleanRd;
+                          const nombre = (previewObra.nombreSolicitante || '').trim();
+                          const parts = [poblacion, nombre].filter(Boolean).join(' ');
+                          return parts || cleanRd || previewObra.rd || '-';
+                        })()}
+                      </strong>
+                    </div>
+
+                    {(previewObra as any).municipio && (
+                      <div>
+                        <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                          Municipio
+                        </span>
+                        <strong style={{ color: '#0f172a' }}>{(previewObra as any).municipio}</strong>
+                      </div>
+                    )}
+
+                    {/* Coordenadas */}
+                    <div style={{ marginTop: '2px', padding: '8px 10px', backgroundColor: '#f1f5f9', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                          Coordenadas (Lat, Long)
+                        </span>
+                        <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#1e293b' }}>
+                          {previewObra.coordenadaY && previewObra.coordenadaX
+                            ? `${previewObra.coordenadaY}, ${previewObra.coordenadaX}`
+                            : 'Sin coordenadas registradas'}
+                        </span>
+                      </div>
+                      {previewObra.coordenadaY && previewObra.coordenadaX && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          target="_blank"
+                          href={`https://www.google.com/maps?q=${previewObra.coordenadaY},${previewObra.coordenadaX}`}
+                          style={{
+                            fontSize: '0.7rem',
+                            padding: '2px 8px',
+                            minWidth: 'auto',
+                            borderColor: '#cbd5e1',
+                            color: '#1e293b',
+                            backgroundColor: '#ffffff',
+                            textTransform: 'none',
+                          }}
+                          startIcon={<LocationOnIcon style={{ color: '#ef4444', fontSize: '0.9rem' }} />}
+                        >
+                          Ver Mapa
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tarjeta: Otras Fechas de Seguimiento */}
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '14px',
+                  padding: '16px 20px',
+                  boxShadow: '0 1px 3px 0 rgba(0,0,0,0.03)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
+                  <CalendarMonthIcon style={{ color: '#8b5cf6', fontSize: '1.2rem' }} />
+                  <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.88rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Otras Fechas de Seguimiento
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', fontSize: '0.85rem' }}>
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Fecha Programada</span>
+                    <strong style={{ color: '#0f172a' }}>{(previewObra as any).fechaProgramada || '-'}</strong>
+                  </div>
+
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Término en Campo</span>
+                    <strong style={{ color: '#0f172a' }}>{previewObra.fechaTerminoCampo || '-'}</strong>
+                  </div>
+
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Fecha Autorización</span>
+                    <strong style={{ color: '#0f172a' }}>{(previewObra as any).fechaAut || '-'}</strong>
+                  </div>
+
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Fecha Supervisión</span>
+                    <strong style={{ color: '#0f172a' }}>{(previewObra as any).fechaSupervision || '-'}</strong>
+                  </div>
+
+                  <div>
+                    <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Fecha Capitalización</span>
+                    <strong style={{ color: '#0f172a' }}>{previewObra.fechaCapitalizacion || '-'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tarjeta de Retiro (Solo si aplica) */}
+              {((previewObra as any).atRetiro || (previewObra as any).ordenRetiro || (previewObra as any).siadRetiro) && (
+                <div
+                  style={{
+                    backgroundColor: '#fffbeb',
+                    border: '1px solid #fef3c7',
+                    borderRadius: '14px',
+                    padding: '14px 18px',
+                  }}
+                >
+                  <span style={{ fontWeight: 800, color: '#b45309', fontSize: '0.84rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
+                    ⚠️ Datos de Retiro
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', fontSize: '0.85rem' }}>
+                    <div>
+                      <span style={{ color: '#92400e', fontSize: '0.72rem', fontWeight: 700, display: 'block' }}>AT de Retiro</span>
+                      <strong style={{ color: '#78350f' }}>{(previewObra as any).atRetiro || '-'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#92400e', fontSize: '0.72rem', fontWeight: 700, display: 'block' }}>SIAD de Retiro</span>
+                      <strong style={{ color: '#78350f' }}>{(previewObra as any).siadRetiro || '-'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#92400e', fontSize: '0.72rem', fontWeight: 700, display: 'block' }}>Orden de Retiro</span>
+                      <strong style={{ color: '#78350f' }}>{(previewObra as any).ordenRetiro || '-'}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tarjeta: Plano y Archivos */}
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '14px',
+                  padding: '16px 20px',
+                  boxShadow: '0 1px 3px 0 rgba(0,0,0,0.03)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      backgroundColor: (previewObra as any).planoPdf ? '#fee2e2' : '#f1f5f9',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: (previewObra as any).planoPdf ? '#dc2626' : '#94a3b8',
+                    }}
+                  >
+                    <PictureAsPdfIcon />
+                  </div>
+                  <div>
+                    <strong style={{ color: '#0f172a', fontSize: '0.92rem', display: 'block' }}>
+                      Plano del Proyecto
+                    </strong>
+                    <span style={{ color: '#64748b', fontSize: '0.78rem' }}>
+                      {(previewObra as any).planoPdf
+                        ? `Archivo PDF vinculado (${previewObra.at || 'Obra'}_${previewObra.obra || 'Plano'}.pdf)`
+                        : 'No se ha adjuntado ningún archivo PDF a esta obra'}
+                    </span>
+                  </div>
+                </div>
+
                 {(previewObra as any).planoPdf ? (
                   <Button
-                    variant="outlined"
-                    color="primary"
+                    variant="contained"
                     size="small"
                     href={getPlanoUrl((previewObra as any).planoPdf)}
                     target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      borderRadius: '8px',
+                      padding: '6px 14px',
+                      textTransform: 'none',
+                    }}
+                    startIcon={<PictureAsPdfIcon fontSize="small" />}
+                    endIcon={<OpenInNewIcon fontSize="small" />}
                   >
-                    Ver Plano PDF
+                    Abrir Plano PDF
                   </Button>
                 ) : (
-                  <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Sin plano cargado</span>
+                  <span style={{ color: '#94a3b8', fontSize: '0.82rem', fontStyle: 'italic' }}>
+                    Sin plano cargado
+                  </span>
                 )}
               </div>
-            </div>
-          )}
-        </DialogContent>
-        <DialogActions style={{ borderTop: '1px solid #e2e8f0', marginTop: '12px', padding: '12px', display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            onClick={() => {
-              const row = previewObra;
-              if (row) {
-                setPreviewObra(null);
-                setEditing(row);
-                setEditForm({
-                  solicitudPo: row.solicitudPo,
-                  at: row.at || '',
-                  obra: row.obra || '',
-                  anio: row.anio || '',
-                  tipoObra: row.tipoObra || '',
-                  activo: row.activo || '',
-                  orden: row.orden || '',
-                  poblacion: (row as any).poblacion || '',
-                  municipio: (row as any).municipio || '',
-                  nombreSolicitante: row.nombreSolicitante || '',
-                  coordenadaX: row.coordenadaX || '',
-                  coordenadaY: row.coordenadaY || '',
-                  contrato: row.contrato || '',
-                  contratista: (row as any).contratista || '',
-                  tieneRetiro: !!(row as any).ordenRetiro || !!(row as any).atRetiro,
-                  atRetiro: (row as any).atRetiro || '',
-                  siadRetiro: (row as any).siadRetiro || '',
-                  ordenRetiro: (row as any).ordenRetiro || '',
-                  fechaPago: formatDateForInput((row as any).fechaPago),
-                  fechaProgramada: formatDateForInput((row as any).fechaProgramada),
-                  fechaAut: formatDateForInput((row as any).fechaAut),
-                  fechaSupervision: formatDateForInput((row as any).fechaSupervision),
-                  fechaAsignacion: formatDateForInput(row.fechaAsignacion),
-                  fechaFinConstruccion: formatDateForInput((row as any).fechaFinConstruccion || (row as any).fechaTermino),
-                  fechaTerminoCampo: formatDateForInput(row.fechaTerminoCampo),
-                  fechaCapitalizacion: formatDateForInput(row.fechaCapitalizacion),
-                  estatus: row.estatus || '',
-                  area: (row as any).area || '',
-                  diasObraAPORTACIONES: (row as any).diasObraAPORTACIONES || '',
-                });
-              }
-            }}
-            color="primary"
-            variant="contained"
-            style={{ backgroundColor: '#008E60' }}
-          >
-            Editar
-          </Button>
-          <Button onClick={() => setPreviewObra(null)} color="primary" variant="outlined" style={{ color: '#0f172a', borderColor: '#0f172a' }}>
-            Cerrar
-          </Button>
-        </DialogActions>
+            </DialogContent>
+
+            {/* Footer / Acciones */}
+            <DialogActions
+              style={{
+                borderTop: '1px solid #e2e8f0',
+                padding: '14px 24px',
+                backgroundColor: '#ffffff',
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Button
+                onClick={() => {
+                  const row = previewObra;
+                  if (row) {
+                    setPreviewObra(null);
+                    setEditing(row);
+                    setEditForm({
+                      solicitudPo: row.solicitudPo,
+                      at: row.at || '',
+                      obra: row.obra || '',
+                      anio: row.anio || '',
+                      tipoObra: row.tipoObra || '',
+                      activo: row.activo || '',
+                      orden: row.orden || '',
+                      poblacion: (row as any).poblacion || '',
+                      municipio: (row as any).municipio || '',
+                      nombreSolicitante: row.nombreSolicitante || '',
+                      coordenadaX: row.coordenadaX || '',
+                      coordenadaY: row.coordenadaY || '',
+                      contrato: row.contrato || '',
+                      contratista: (row as any).contratista || '',
+                      tieneRetiro: !!(row as any).ordenRetiro || !!(row as any).atRetiro,
+                      atRetiro: (row as any).atRetiro || '',
+                      siadRetiro: (row as any).siadRetiro || '',
+                      ordenRetiro: (row as any).ordenRetiro || '',
+                      fechaPago: formatDateForInput((row as any).fechaPago),
+                      fechaProgramada: formatDateForInput((row as any).fechaProgramada),
+                      fechaAut: formatDateForInput((row as any).fechaAut),
+                      fechaSupervision: formatDateForInput((row as any).fechaSupervision),
+                      fechaAsignacion: formatDateForInput(row.fechaAsignacion),
+                      fechaFinConstruccion: formatDateForInput((row as any).fechaFinConstruccion || (row as any).fechaTermino),
+                      fechaTerminoCampo: formatDateForInput(row.fechaTerminoCampo),
+                      fechaCapitalizacion: formatDateForInput(row.fechaCapitalizacion),
+                      estatus: row.estatus || '',
+                      area: (row as any).area || '',
+                      diasObraAPORTACIONES: (row as any).diasObraAPORTACIONES || '',
+                    });
+                  }
+                }}
+                variant="contained"
+                style={{
+                  backgroundColor: '#059669',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  borderRadius: '10px',
+                  padding: '8px 18px',
+                  textTransform: 'none',
+                  boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)',
+                }}
+                startIcon={<EditIcon />}
+              >
+                Editar Obra
+              </Button>
+
+              <Button
+                onClick={() => setPreviewObra(null)}
+                variant="outlined"
+                style={{
+                  color: '#475569',
+                  borderColor: '#cbd5e1',
+                  borderRadius: '10px',
+                  padding: '8px 18px',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                }}
+              >
+                Cerrar
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
 
       {/* Modal para Editar Obra */}

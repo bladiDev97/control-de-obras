@@ -62,6 +62,7 @@ export class ObraService {
 
   /** Helper to determine if an Obra is assigned */
   public isObraAsignada(obra: IObra): boolean {
+    if (!obra.at || obra.at.trim() === '') return false;
     const calculatedEstatus = this.determineEstatus(obra);
     if (calculatedEstatus !== 'PENDIENTE') return true;
     if (obra.estatus && obra.estatus !== 'PENDIENTE') return true;
@@ -71,6 +72,44 @@ export class ObraService {
     if (obra.oficioConsecutivo != null && Number(obra.oficioConsecutivo) > 0) return true;
     if (obra.oficio && obra.oficio.trim() !== '') return true;
     return false;
+  }
+
+  private determineEstatus(obra: IObra): 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' {
+    if (obra.fechaCapitalizacion && obra.fechaCapitalizacion.trim() !== '') {
+      return 'CAPITALIZADA';
+    }
+    const rawObra = obra as any;
+    const hasFechaTermino = !!(
+      (obra.fechaFinConstruccion && obra.fechaFinConstruccion.trim() !== '') ||
+      (rawObra.fechaTermino && String(rawObra.fechaTermino).trim() !== '')
+    );
+    if (hasFechaTermino) {
+      return 'TERMINADA';
+    }
+    // Si la obra no tiene número de AT o no tiene datos de asignación completos, debe permanecer PENDIENTE (ASIGNAR)
+    if (!obra.at || obra.at.trim() === '') {
+      return 'PENDIENTE';
+    }
+    if (obra.estatus === 'PENDIENTE') {
+      if (
+        (obra.contrato && obra.contrato.trim() !== '') ||
+        (obra.contratista && obra.contratista.trim() !== '') ||
+        (obra.fechaAsignacion && obra.fechaAsignacion.trim() !== '') ||
+        (obra.fechaTerminoCampo && obra.fechaTerminoCampo.trim() !== '')
+      ) {
+        return 'ASIGNADA';
+      }
+      return 'PENDIENTE';
+    }
+    if (
+      (obra.contrato && obra.contrato.trim() !== '') ||
+      (obra.contratista && obra.contratista.trim() !== '') ||
+      (obra.fechaAsignacion && obra.fechaAsignacion.trim() !== '') ||
+      (obra.fechaTerminoCampo && obra.fechaTerminoCampo.trim() !== '')
+    ) {
+      return 'ASIGNADA';
+    }
+    return 'PENDIENTE';
   }
 
   /** List all Obras, auto-assign consecutive numbers to any assigned obras missing them, and calculate diasSinCapitalizar */
@@ -106,6 +145,7 @@ export class ObraService {
       return {
         ...obra,
         id,
+        estatus: this.determineEstatus(obra),
         diasSinCapitalizar,
         contratista,
         numeroOficio,
@@ -245,18 +285,31 @@ export class ObraService {
     };
   }
 
-  /** Set term of field work (Terminar Obra) */
-  public async terminar(pk: string, id: string, fechaTerminoCampo: string): Promise<IObra> {
+  /** Set term of field work / term of obra */
+  public async terminar(
+    pk: string,
+    id: string,
+    fechaTerminoCampo?: string,
+    fechaFinConstruccion?: string,
+  ): Promise<IObra> {
     const keys: IGeneric = { pk, sk: id };
     const existing = await this.obraRepository.obraDetail(keys);
 
     const updatedData: IObra = {
       ...existing,
-      fechaTerminoCampo,
-      estatus: 'TERMINADA',
       pk,
       sk: id,
     };
+
+    if (fechaTerminoCampo !== undefined) {
+      updatedData.fechaTerminoCampo = fechaTerminoCampo;
+    }
+    if (fechaFinConstruccion !== undefined) {
+      updatedData.fechaFinConstruccion = fechaFinConstruccion;
+      (updatedData as any).fechaTermino = fechaFinConstruccion;
+    }
+
+    updatedData.estatus = this.determineEstatus(updatedData);
 
     const updated = await this.obraRepository.obraUpdate(updatedData);
     return {
@@ -820,7 +873,8 @@ export class ObraService {
           const fechaPago = this.parseExcelDate(rawFechaPago);
 
           const rawTipoObraSenasol = String(row['Tipo Obra'] || row['Tipo de Obra'] || '').trim().toUpperCase();
-          const diasObraAPORTACIONES = rawTipoObraSenasol === 'NUEVO' ? 28 : 9;
+          const is28Dias = rawTipoObraSenasol === 'NUEVO' || rawTipoObraSenasol.includes('INCREMENTO');
+          const diasObraAPORTACIONES = is28Dias ? 28 : 9;
 
           const latitudVal = String(row['Latitud'] || row['LATITUD'] || '').trim();
           const longitudVal = String(row['Longitud'] || row['LONGITUD'] || '').trim();
@@ -947,8 +1001,19 @@ export class ObraService {
 
         const poblacion = row['Poblacion'] || row['Población'] || row['POBLACION'] || '';
         const municipio = row['Municipio'] || row['MUNICIPIO'] || '';
-        const area = row['Area'] || row['Área'] || row['AREA'] || row['AREA '] || '';
         const nombreSolicitante = row['Nombre'] || row['Solicitante'] || row['Cliente'] || row['NOMBRE'] || '';
+        const rawZonaKey = Object.keys(row || {}).find(k => k.toLowerCase().trim() === 'zona');
+        const rawZona = String(
+          (rawZonaKey ? row[rawZonaKey] : '') || row['Zona'] || row['ZONA'] || row['zona'] || row['Zona '] || row['ZONA '] || ''
+        ).trim();
+
+        const rawAreaKey = Object.keys(row || {}).find(k => {
+          const lk = k.toLowerCase().trim();
+          return lk === 'area' || lk === 'área';
+        });
+        const rawArea = String(
+          (rawAreaKey ? row[rawAreaKey] : '') || row['Area'] || row['Área'] || row['AREA'] || row['AREA '] || ''
+        ).trim();
         const orden = row['Orden'] || row['ORDEN'] || '';
         const activo = row['Activo'] || row['ACTIVO'] || '';
         const atRetiro = row['AT de Retiro'] || row['AT Retiro'] || row['AT DE RETIRO'] || '';
@@ -957,7 +1022,18 @@ export class ObraService {
         const coordenadaX = row['Coordenada X'] || row['X'] || row['Longitud'] || '';
         const coordenadaY = row['Coordenada Y'] || row['Y'] || row['Latitud'] || '';
         const fechaAsignacion = row['Fecha de Asignacion'] || row['Fecha Inicio'] || '';
-        const fechaFinConstruccion = row['Fecha de Fin de Construccion'] || row['Fecha Fin Construcción'] || '';
+        const fechaFinConstruccion =
+          row['Fecha de Fin de Construccion'] ||
+          row['Fecha Fin Construcción'] ||
+          row['Fecha de Termino'] ||
+          row['Fecha de Término'] ||
+          row['Fecha Termino'] ||
+          row['Fecha Término'] ||
+          row['FECHA DE TERMINO'] ||
+          row['FECHA TERMINO'] ||
+          row['FECHA DE FIN DE CONSTRUCCION'] ||
+          row['FECHA FIN CONSTRUCCIÓN'] ||
+          '';
         const fechaTerminoCampo = row['Fecha Termino en Campo'] || '';
         const fechaCapitalizacion = row['Fecha de Capitalizacion'] || row['Fecha Capitalizada'] || '';
         // Strict literal "Contrato" column extraction for SIAD PLUS
@@ -1000,7 +1076,8 @@ export class ObraService {
           nombreSolicitante: nombreSolicitante || existing?.nombreSolicitante || '',
           poblacion: poblacion || existing?.poblacion || '',
           municipio: municipio || existing?.municipio || '',
-          area: area || (existing as any)?.area || '',
+          area: rawArea || (existing as any)?.area || rawZona || '',
+          zona: rawZona || (existing as any)?.zona || rawArea || (existing as any)?.area || '',
           orden: orden || existing?.orden || '',
           activo: activo || existing?.activo || '',
           contrato: validContrato || existing?.contrato || '',
@@ -1275,10 +1352,17 @@ export class ObraService {
           needsSave = true;
         }
 
+        const desiredEstatus = this.determineEstatus(u);
+        if (u.estatus !== desiredEstatus) {
+          u.estatus = desiredEstatus;
+          toSave.estatus = desiredEstatus;
+          needsSave = true;
+        }
+
         if (needsSave) {
           try {
             await this.obraRepository.obraUpdate(toSave);
-            this.logger.log(`[CONSECUTIVO] Updated unassigned obra=${cleanSk} (rd='${desiredRd}')`);
+            this.logger.log(`[CONSECUTIVO] Updated unassigned obra=${cleanSk} (rd='${desiredRd}', estatus='${desiredEstatus}')`);
           } catch (err) {
             this.logger.error(`[CONSECUTIVO] Failed to update unassigned obra ${cleanSk}:`, err);
           }
@@ -1314,13 +1398,16 @@ export class ObraService {
         const nombre = (a.nombreSolicitante || '').trim();
         const desiredRd = [poblacion, nombre].filter(Boolean).join(' ') || cleanRd || a.rd || '';
 
+        const desiredEstatus = this.determineEstatus(a);
         const needsUpdate =
           currentConsecutivo !== desiredConsecutivo ||
           a.anio !== year ||
-          (desiredRd && a.rd !== desiredRd);
+          (desiredRd && a.rd !== desiredRd) ||
+          a.estatus !== desiredEstatus;
 
         a.oficioConsecutivo = desiredConsecutivo;
         a.anio = year;
+        a.estatus = desiredEstatus;
         if (desiredRd) {
           a.rd = desiredRd;
         }
@@ -1336,11 +1423,12 @@ export class ObraService {
             anio: year,
             rd: desiredRd || a.rd || '',
             oficioConsecutivo: desiredConsecutivo,
+            estatus: desiredEstatus,
           };
           try {
             await this.obraRepository.obraUpdate(toSave);
             this.logger.log(
-              `[CONSECUTIVO] Resequenced obra=${cleanSk} -> oficioConsecutivo=${desiredConsecutivo} (rd='${desiredRd}')`
+              `[CONSECUTIVO] Resequenced obra=${cleanSk} -> oficioConsecutivo=${desiredConsecutivo} (rd='${desiredRd}', estatus='${desiredEstatus}')`
             );
           } catch (err) {
             this.logger.error(`[CONSECUTIVO] Failed to resequence obra ${cleanSk}:`, err);
@@ -1557,25 +1645,5 @@ export class ObraService {
       oficioConsecutivo: consecutivoNum,
       numeroOficio,
     };
-  }
-
-  private determineEstatus(obra: IObra): 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' {
-    if (obra.fechaCapitalizacion && obra.fechaCapitalizacion.trim() !== '') {
-      return 'CAPITALIZADA';
-    }
-    if (
-      (obra.fechaTerminoCampo && obra.fechaTerminoCampo.trim() !== '') ||
-      (obra.fechaFinConstruccion && obra.fechaFinConstruccion.trim() !== '')
-    ) {
-      return 'TERMINADA';
-    }
-    if (
-      (obra.contrato && obra.contrato.trim() !== '') ||
-      (obra.contratista && obra.contratista.trim() !== '') ||
-      (obra.fechaAsignacion && obra.fechaAsignacion.trim() !== '')
-    ) {
-      return 'ASIGNADA';
-    }
-    return 'PENDIENTE';
   }
 }

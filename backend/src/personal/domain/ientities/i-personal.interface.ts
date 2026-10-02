@@ -9,4 +9,5 @@ export interface IPersonal extends IGenericEntity {
   cargo: string;
   correo: string;
   zona?: string;
+  firmaUrl?: string;
 }

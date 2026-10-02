@@ -37,4 +37,7 @@ export class PersonalEntity extends GenericEntity implements IPersonal {
 
   @Attribute()
   zona?: string;
+
+  @Attribute()
+  firmaUrl?: string;
 }

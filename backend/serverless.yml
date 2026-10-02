@@ -58,7 +58,9 @@ provider:
             - s3:PutObject
             - s3:GetObject
             - s3:PutObjectAcl
+            - s3:ListBucket
           Resource:
+            - arn:aws:s3:::control-de-obras-*
             - arn:aws:s3:::control-de-obras-*/*
 
 functions:

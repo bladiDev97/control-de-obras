@@ -169,7 +169,11 @@ export default function ContratoDetailPage() {
       
       setContrato(cData);
       setAsignaciones(aData);
-      setEstimaciones(eData);
+      const mappedEData = eData.map((e, idx) => ({
+        ...e,
+        id: e.id || `est_${e.at || 'noat'}_${e.numeroEstimacion || 'num'}_${idx}`,
+      }));
+      setEstimaciones(mappedEData);
       setAllObras(oData);
     } catch (err) {
       console.error('Error cargando datos del contrato:', err);
@@ -207,7 +211,8 @@ export default function ContratoDetailPage() {
 
   const displayAsignaciones: Asignacion[] = assignedObras.map((o) => {
     const atKey = o.at && o.at.trim() !== '' ? o.at.trim() : o.solicitudPo;
-    const saved = asignaciones.find((a) => a.at === atKey);
+    const cleanAtKey = atKey ? atKey.trim().toUpperCase() : '';
+    const saved = asignaciones.find((a) => a.at && a.at.trim().toUpperCase() === cleanAtKey);
 
     return {
       id: saved?.id || `placeholder#${atKey}`,
@@ -217,16 +222,41 @@ export default function ContratoDetailPage() {
       obra: o.obra,
       orden: o.orden,
       activo: o.activo,
-      conceptos: saved?.conceptos || {},
+      conceptos: (saved?.conceptos && Object.values(saved.conceptos).some((v) => Number(v) > 0))
+        ? saved.conceptos
+        : ((o as any).conceptos || saved?.conceptos || {}),
     };
   });
+
+  const getEffectiveEstimacionConcepts = (est: Estimacion): Record<string, number> => {
+    const cleanAt = est.at ? est.at.trim().toUpperCase() : '';
+    const matchedAsign = displayAsignaciones.find((a) => a.at.trim().toUpperCase() === cleanAt);
+    
+    const baseConcepts = matchedAsign?.conceptos || {};
+    const result: Record<string, number> = {};
+
+    if (contrato && contrato.conceptos) {
+      contrato.conceptos.forEach((c) => {
+        const hasEstKey = est.conceptos && est.conceptos[c.codigo] !== undefined;
+        const estQty = hasEstKey ? Number(est.conceptos[c.codigo]) : undefined;
+        const asigQty = baseConcepts ? Number(baseConcepts[c.codigo]) || 0 : 0;
+
+        result[c.codigo] = (estQty !== undefined && !isNaN(estQty)) ? estQty : asigQty;
+      });
+    }
+
+    return result;
+  };
 
   const getConceptSumAsignada = (conceptCode: string) => {
     return displayAsignaciones.reduce((acc, curr) => acc + (curr.conceptos[conceptCode] || 0), 0);
   };
 
   const getConceptSumEstimada = (conceptCode: string) => {
-    return estimaciones.reduce((acc, curr) => acc + (curr.conceptos[conceptCode] || 0), 0);
+    return estimaciones.reduce((acc, curr) => {
+      const concepts = getEffectiveEstimacionConcepts(curr);
+      return acc + (concepts[conceptCode] || 0);
+    }, 0);
   };
 
   const totalContratado = contrato.montoAutorizado;
@@ -266,6 +296,27 @@ export default function ContratoDetailPage() {
   const restoSinAmpliacion = totalContratado - totalEjecutado;
   const restoConAmpliacion = totalAmpliado - totalEjecutado;
 
+  const totalIvaEjecutado = totalEjecutado * 0.16;
+  const totalSubtotalEjecutado = totalEjecutado + totalIvaEjecutado;
+
+  const totalSfpDeduccion = totalEjecutado * 0.005;
+  const totalCuotaSindical = totalManoObraEjecutada * 0.02;
+
+  const totalCompensacionSindical = estimaciones.reduce((acc, curr) => acc + (curr.compSind || 0), 0);
+
+  const totalIvaRetenido = estimaciones.reduce((acc, curr) => {
+    if (!curr.retenerIva) return acc;
+    const estTotal = contrato.conceptos.reduce((cAcc, cCurr) => {
+      const qty = curr.conceptos[cCurr.codigo] || 0;
+      return cAcc + (qty * cCurr.costoUnitario);
+    }, 0);
+    const ivaEst = estTotal * 0.16;
+    return acc + (ivaEst * (2 / 3));
+  }, 0);
+
+  const totalDeducciones = totalSfpDeduccion + totalCuotaSindical + totalCompensacionSindical + totalIvaRetenido;
+  const totalLiquidoAPagar = totalSubtotalEjecutado - totalDeducciones;
+
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(val);
   };
@@ -291,15 +342,17 @@ export default function ContratoDetailPage() {
 
   // --- Calculations for Estimations ---
   const getEstimacionTotalVal = (est: Estimacion) => {
+    const concepts = getEffectiveEstimacionConcepts(est);
     return contrato.conceptos.reduce((acc, curr) => {
-      const qty = est.conceptos[curr.codigo] || 0;
+      const qty = concepts[curr.codigo] || 0;
       return acc + (qty * curr.costoUnitario);
     }, 0);
   };
 
   const getEstimacionManoObraVal = (est: Estimacion) => {
+    const concepts = getEffectiveEstimacionConcepts(est);
     return contrato.conceptos.reduce((acc, curr) => {
-      const qty = est.conceptos[curr.codigo] || 0;
+      const qty = concepts[curr.codigo] || 0;
       return acc + (qty * curr.manoDeObra);
     }, 0);
   };
@@ -318,8 +371,23 @@ export default function ContratoDetailPage() {
           },
         };
         return updated;
+      } else {
+        const matched = displayAsignaciones.find((a) => a.at === atCode);
+        const newAsign: Asignacion = {
+          id: `temp_asig#${atCode}`,
+          numeroContrato: contrato ? contrato.numeroContrato : '',
+          at: atCode,
+          tipoObra: matched?.tipoObra || '',
+          obra: matched?.obra || '',
+          orden: matched?.orden || '',
+          activo: matched?.activo || '',
+          conceptos: {
+            ...(matched?.conceptos || {}),
+            [conceptCode]: value,
+          },
+        };
+        return [...prev, newAsign];
       }
-      return prev;
     });
   };
 
@@ -405,18 +473,16 @@ export default function ContratoDetailPage() {
       const idx = prev.findIndex((e) => e.id === idKey || `${e.at}#${e.numeroEstimacion}` === idKey);
       if (idx > -1) {
         const updated = [...prev];
-        let conceptsCopy = { ...updated[idx].conceptos };
-        if (matchedAsign && Object.keys(conceptsCopy).length === 0) {
-          conceptsCopy = { ...matchedAsign.conceptos };
-        }
+        const newConcepts = matchedAsign ? { ...matchedAsign.conceptos } : { ...updated[idx].conceptos };
         updated[idx] = {
           ...updated[idx],
+          id: updated[idx].id || idKey,
           at: newAt,
           obra: matchedAsign?.obra || updated[idx].obra || '',
           tipoObra: matchedAsign?.tipoObra || updated[idx].tipoObra || '',
           orden: matchedAsign?.orden || updated[idx].orden || '',
           activo: matchedAsign?.activo || updated[idx].activo || '',
-          conceptos: conceptsCopy,
+          conceptos: newConcepts,
         };
         return updated;
       }
@@ -452,6 +518,8 @@ export default function ContratoDetailPage() {
     setSavingRow(true);
     const matchedAsign = displayAsignaciones.find((a) => a.at.trim().toUpperCase() === cleanAt.toUpperCase());
 
+    const effectiveConcepts = getEffectiveEstimacionConcepts(est);
+
     const payload = {
       numeroEstimacion: numEst,
       at: cleanAt,
@@ -461,7 +529,7 @@ export default function ContratoDetailPage() {
       bitacoraAutorizacion: est.bitacoraAutorizacion || '',
       compSind: est.compSind || 0,
       retenerIva: est.retenerIva || false,
-      conceptos: est.conceptos || {},
+      conceptos: effectiveConcepts,
     };
 
     try {
@@ -887,25 +955,46 @@ export default function ContratoDetailPage() {
                   displayAsignaciones.map((asign, rIdx) => {
                     const isEditing = editingAsignRowId === asign.at;
 
+                    const asignConceptQty = asign.conceptos
+                      ? Object.values(asign.conceptos).reduce((acc, curr) => acc + (Number(curr) || 0), 0)
+                      : 0;
+                    const isAsignEmpty = asignConceptQty === 0;
+
+                    const rowBg = isEditing ? '#fefce8' : (isAsignEmpty ? '#fee2e2' : '#ffffff');
+
                     return (
-                      <TableRow key={asign.id} hover sx={{ backgroundColor: isEditing ? '#fefce8' : 'transparent' }}>
+                      <TableRow
+                        key={asign.id}
+                        hover
+                        sx={{
+                          backgroundColor: rowBg,
+                          ...(isAsignEmpty && !isEditing && {
+                            borderTop: '2px solid #ef4444',
+                            borderBottom: '2px solid #ef4444',
+                            '& td': {
+                              color: '#991b1b',
+                            },
+                          }),
+                        }}
+                      >
                         {/* Sticky cells on body */}
-                        <TableCell sx={{ fontWeight: 'bold', color: 'var(--color-primary)', position: 'sticky', left: 0, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff' }}>{asign.at}</TableCell>
-                        <TableCell sx={{ position: 'sticky', left: 90, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', borderRight: '2px solid #cbd5e1' }}>{asign.obra || '-'}</TableCell>
-                        <TableCell>{asign.tipoObra || '-'}</TableCell>
-                        <TableCell>{asign.orden || '-'}</TableCell>
-                        <TableCell>{asign.activo || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold', color: isAsignEmpty ? '#991b1b' : 'var(--color-primary)', position: 'sticky', left: 0, zIndex: 11, backgroundColor: `${rowBg} !important` }}>{asign.at}</TableCell>
+                        <TableCell sx={{ position: 'sticky', left: 90, zIndex: 11, backgroundColor: `${rowBg} !important`, borderRight: '2px solid #cbd5e1', color: isAsignEmpty ? '#991b1b' : 'inherit' }}>{asign.obra || '-'}</TableCell>
+                        <TableCell sx={{ backgroundColor: `${rowBg} !important`, color: isAsignEmpty ? '#991b1b' : 'inherit' }}>{asign.tipoObra || '-'}</TableCell>
+                        <TableCell sx={{ backgroundColor: `${rowBg} !important`, color: isAsignEmpty ? '#991b1b' : 'inherit' }}>{asign.orden || '-'}</TableCell>
+                        <TableCell sx={{ backgroundColor: `${rowBg} !important`, color: isAsignEmpty ? '#991b1b' : 'inherit' }}>{asign.activo || '-'}</TableCell>
                         
                         {/* Concept editable cells */}
                         {contrato.conceptos.map((concept, cIdx) => {
                           const qty = asign.conceptos[concept.codigo] || 0;
+                          const cellBg = qty > 0 ? (isEditing ? '#a7f3d0' : '#d1fae5') : rowBg;
                           return (
                             <TableCell
                               key={concept.codigo}
                               sx={{
                                 p: 0,
                                 textAlign: 'center',
-                                bgcolor: qty > 0 ? (isEditing ? '#a7f3d0' : '#d1fae5') : 'transparent',
+                                backgroundColor: `${cellBg} !important`,
                                 minWidth: 80,
                                 borderRight: '1px solid #e2e8f0',
                               }}
@@ -923,12 +1012,12 @@ export default function ContratoDetailPage() {
                         })}
 
                         {/* Sticky total value on right */}
-                        <TableCell sx={{ textAlign: 'right', fontWeight: 'bold', color: '#005a3c', position: 'sticky', right: 130, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', borderLeft: '2px solid #005a3c', boxShadow: '-3px 0 6px rgba(0,0,0,0.06)' }}>
+                        <TableCell sx={{ textAlign: 'right', fontWeight: 'bold', color: isAsignEmpty ? '#991b1b' : '#005a3c', position: 'sticky', right: 130, zIndex: 11, backgroundColor: `${rowBg} !important`, borderLeft: '2px solid #005a3c', boxShadow: '-3px 0 6px rgba(0,0,0,0.06)' }}>
                           {formatCurrencyOrBlank(getAsignacionTotalVal(asign))}
                         </TableCell>
 
                         {/* Sticky action cell */}
-                        <TableCell sx={{ textAlign: 'center', position: 'sticky', right: 0, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', borderLeft: '1px solid #e2e8f0', minWidth: 70 }}>
+                        <TableCell sx={{ textAlign: 'center', position: 'sticky', right: 0, zIndex: 11, backgroundColor: `${rowBg} !important`, borderLeft: '1px solid #e2e8f0', minWidth: 70 }}>
                           {isEditing ? (
                             <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }}>
                               <IconButton
@@ -1065,6 +1154,17 @@ export default function ContratoDetailPage() {
                       const cleanAt = est.at ? est.at.trim().toUpperCase() : '';
                       const matchedAsign = displayAsignaciones.find((a) => a.at.trim().toUpperCase() === cleanAt);
 
+                      const asignConceptQty = matchedAsign?.conceptos
+                        ? Object.values(matchedAsign.conceptos).reduce((acc, curr) => acc + (Number(curr) || 0), 0)
+                        : 0;
+
+                      const isUnassigned = !matchedAsign || asignConceptQty === 0;
+
+                      // Effective concept quantities (Synced with Asignación)
+                      const effectiveConcepts = getEffectiveEstimacionConcepts(est);
+
+                      const rowBg = isEditing ? '#fefce8' : (isUnassigned ? '#fee2e2' : '#ffffff');
+
                       // Dynamic financial values
                       const impTotal = getEstimacionTotalVal(est);
                       const montEjercido = impTotal;
@@ -1083,70 +1183,86 @@ export default function ContratoDetailPage() {
                       const liqPagar = sub - totDeduc;
 
                       return (
-                        <TableRow key={estId} hover sx={{ backgroundColor: isEditing ? '#fefce8' : 'transparent' }}>
+                        <TableRow
+                          key={estId}
+                          hover
+                          sx={{
+                            backgroundColor: `${rowBg} !important`,
+                            ...(isUnassigned && !isEditing && {
+                              borderTop: '2px solid #ef4444',
+                              borderBottom: '2px solid #ef4444',
+                              '& td': {
+                                color: '#991b1b !important',
+                                backgroundColor: `${rowBg} !important`,
+                              },
+                            }),
+                          }}
+                        >
                           {/* Sticky body cells for Tab 2: ONLY N° EST, AT, OBRA */}
-                          <TableCell sx={{ p: 0.5, fontWeight: 'bold', position: 'sticky', left: 0, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', textAlign: 'center', color: '#1565c0' }}>
+                          <TableCell sx={{ p: 0.5, fontWeight: 'bold', position: 'sticky', left: 0, zIndex: 11, backgroundColor: `${rowBg} !important`, textAlign: 'center', color: isUnassigned ? '#991b1b' : '#1565c0' }}>
                             {est.numeroEstimacion || '-'}
                           </TableCell>
                           
                           {/* AT cell with Text Input Field */}
-                          <TableCell sx={{ p: 0.5, position: 'sticky', left: 65, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', textAlign: 'center' }}>
+                          <TableCell sx={{ p: 0.5, position: 'sticky', left: 65, zIndex: 11, backgroundColor: `${rowBg} !important`, textAlign: 'center' }}>
                             {isEditing ? (
                               <input
                                 type="text"
                                 value={est.at || ''}
                                 placeholder="Escribe AT..."
+                                autoComplete="off"
                                 onChange={(e) => updateEstimacionAt(estId, e.target.value)}
                                 style={{
-                                  width: '75px',
+                                  width: '90px',
                                   height: '30px',
                                   border: '1px solid #16a34a',
                                   borderRadius: '4px',
                                   textAlign: 'center',
                                   fontWeight: 'bold',
                                   outline: 'none',
-                                  background: '#ffffff',
+                                  background: rowBg,
                                   color: 'inherit',
                                   fontSize: '0.85rem',
                                 }}
                               />
                             ) : (
-                              <Box sx={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                              <Box sx={{ fontWeight: 'bold', color: isUnassigned ? '#991b1b' : 'var(--color-primary)' }}>
                                 {est.at || '-'}
                               </Box>
                             )}
                           </TableCell>
 
                           {/* Obra cell (Auto-populated from Asignación) */}
-                          <TableCell sx={{ position: 'sticky', left: 155, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', borderRight: '2px solid #cbd5e1', fontWeight: 'bold' }}>
+                          <TableCell sx={{ position: 'sticky', left: 155, zIndex: 11, backgroundColor: `${rowBg} !important`, borderRight: '2px solid #cbd5e1', fontWeight: 'bold', color: isUnassigned ? '#991b1b' : 'inherit' }}>
                             {matchedAsign?.obra || est.obra || '-'}
                           </TableCell>
 
                           {/* Tipo cell (Auto-populated from Asignación) */}
-                          <TableCell sx={{ backgroundColor: isEditing ? '#fefce8' : '#fff' }}>
+                          <TableCell sx={{ backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : 'inherit' }}>
                             {matchedAsign?.tipoObra || est.tipoObra || '-'}
                           </TableCell>
 
                           {/* Orden cell (Auto-populated from Asignación) */}
-                          <TableCell sx={{ backgroundColor: isEditing ? '#fefce8' : '#fff' }}>
+                          <TableCell sx={{ backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : 'inherit' }}>
                             {matchedAsign?.orden || est.orden || '-'}
                           </TableCell>
 
                           {/* Activo cell (Auto-populated from Asignación) */}
-                          <TableCell sx={{ backgroundColor: isEditing ? '#fefce8' : '#fff' }}>
+                          <TableCell sx={{ backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : 'inherit' }}>
                             {matchedAsign?.activo || est.activo || '-'}
                           </TableCell>
 
                           {/* Concept editable cells with FastCellInput */}
                           {contrato.conceptos.map((concept, cIdx) => {
-                            const qty = est.conceptos[concept.codigo] || 0;
+                            const qty = effectiveConcepts[concept.codigo] || 0;
+                            const cellBg = qty > 0 ? (isEditing ? '#a7f3d0' : '#d1fae5') : rowBg;
                             return (
                               <TableCell
                                 key={concept.codigo}
                                 sx={{
                                   p: 0,
                                   textAlign: 'center',
-                                  bgcolor: qty > 0 ? (isEditing ? '#a7f3d0' : '#d1fae5') : 'transparent',
+                                  backgroundColor: `${cellBg} !important`,
                                   minWidth: 80,
                                   borderRight: '1px solid #e2e8f0',
                                 }}
@@ -1154,7 +1270,7 @@ export default function ContratoDetailPage() {
                                 <FastCellInput
                                   id={`estim-cell-${rIdx}-${cIdx}`}
                                   value={qty}
-                                  disabled={true}
+                                  disabled={!isEditing}
                                   activeColor="#005a3c"
                                   onChange={(newVal) => updateEstimacionQuantity(estId, concept.codigo, newVal)}
                                   onNavigateKey={(key) => handleCellNavigate('estim', rIdx, cIdx, key, estimaciones.length, contrato.conceptos.length)}
@@ -1164,19 +1280,19 @@ export default function ContratoDetailPage() {
                           })}
 
                           {/* Sticky IMPORTE TOTAL cell */}
-                          <TableCell sx={{ textAlign: 'right', fontWeight: 'bold', color: impTotal > 0 ? '#1565c0' : 'inherit', borderLeft: '2px solid #cbd5e1', position: 'sticky', right: 260, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', boxShadow: '-3px 0 6px rgba(0,0,0,0.06)' }}>
+                          <TableCell sx={{ textAlign: 'right', fontWeight: 'bold', color: isUnassigned ? '#991b1b' : (impTotal > 0 ? '#1565c0' : 'inherit'), borderLeft: '2px solid #cbd5e1', position: 'sticky', right: 260, zIndex: 11, backgroundColor: `${rowBg} !important`, boxShadow: '-3px 0 6px rgba(0,0,0,0.06)' }}>
                             {formatCurrencyOrBlank(impTotal)}
                           </TableCell>
 
-                          <TableCell sx={{ textAlign: 'right', color: montEjercido > 0 ? '#1565c0' : 'inherit' }}>{formatCurrencyOrBlank(montEjercido)}</TableCell>
-                          <TableCell sx={{ textAlign: 'right', color: impMo > 0 ? '#0d47a1' : 'inherit' }}>{formatCurrencyOrBlank(impMo)}</TableCell>
-                          <TableCell sx={{ textAlign: 'right', color: ivaEst > 0 ? '#2e7d32' : 'inherit' }}>{formatCurrencyOrBlank(ivaEst)}</TableCell>
-                          <TableCell sx={{ textAlign: 'right', fontWeight: 'bold', color: sub > 0 ? '#2e7d32' : 'inherit' }}>{formatCurrencyOrBlank(sub)}</TableCell>
-                          <TableCell sx={{ textAlign: 'right', color: sfpVal > 0 ? '#b71c1c' : 'inherit' }}>{formatCurrencyOrBlank(sfpVal)}</TableCell>
-                          <TableCell sx={{ textAlign: 'right', color: cuotaSindVal > 0 ? '#b71c1c' : 'inherit' }}>{formatCurrencyOrBlank(cuotaSindVal)}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : (montEjercido > 0 ? '#1565c0' : 'inherit') }}>{formatCurrencyOrBlank(montEjercido)}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : (impMo > 0 ? '#0d47a1' : 'inherit') }}>{formatCurrencyOrBlank(impMo)}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : (ivaEst > 0 ? '#2e7d32' : 'inherit') }}>{formatCurrencyOrBlank(ivaEst)}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', backgroundColor: `${rowBg} !important`, fontWeight: 'bold', color: isUnassigned ? '#991b1b' : (sub > 0 ? '#2e7d32' : 'inherit') }}>{formatCurrencyOrBlank(sub)}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : (sfpVal > 0 ? '#b71c1c' : 'inherit') }}>{formatCurrencyOrBlank(sfpVal)}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : (cuotaSindVal > 0 ? '#b71c1c' : 'inherit') }}>{formatCurrencyOrBlank(cuotaSindVal)}</TableCell>
                           
                           {/* COMP SIND (Union Compensation) editable cell */}
-                          <TableCell sx={{ p: 0, minWidth: 100, borderRight: '1px solid #e2e8f0', bgcolor: compSindVal > 0 ? '#fff9c4' : 'transparent' }}>
+                          <TableCell sx={{ p: 0, minWidth: 100, borderRight: '1px solid #e2e8f0', backgroundColor: compSindVal > 0 ? '#fff9c4 !important' : `${rowBg} !important` }}>
                             <input
                               type="number"
                               value={compSindVal === 0 ? '' : compSindVal}
@@ -1201,7 +1317,7 @@ export default function ContratoDetailPage() {
                           </TableCell>
 
                           {/* RETENER IVA Checkbox Cell */}
-                          <TableCell sx={{ textAlign: 'center', p: 0, minWidth: 100, borderRight: '1px solid #e2e8f0', bgcolor: est.retenerIva ? '#ffe0b2' : 'transparent' }}>
+                          <TableCell sx={{ textAlign: 'center', p: 0, minWidth: 100, borderRight: '1px solid #e2e8f0', backgroundColor: est.retenerIva ? '#ffe0b2 !important' : `${rowBg} !important` }}>
                             <Checkbox
                               checked={!!est.retenerIva}
                               disabled={!isEditing}
@@ -1211,17 +1327,17 @@ export default function ContratoDetailPage() {
                           </TableCell>
 
                           {/* IVA RETENIDO Output cell */}
-                          <TableCell sx={{ textAlign: 'right', color: ivaRetenidoVal > 0 ? '#b71c1c' : 'inherit' }}>{formatCurrencyOrBlank(ivaRetenidoVal)}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', backgroundColor: `${rowBg} !important`, color: isUnassigned ? '#991b1b' : (ivaRetenidoVal > 0 ? '#b71c1c' : 'inherit') }}>{formatCurrencyOrBlank(ivaRetenidoVal)}</TableCell>
 
-                          <TableCell sx={{ textAlign: 'right', fontWeight: 'bold', color: totDeduc > 0 ? '#b71c1c' : 'inherit' }}>{formatCurrencyOrBlank(totDeduc)}</TableCell>
+                          <TableCell sx={{ textAlign: 'right', backgroundColor: `${rowBg} !important`, fontWeight: 'bold', color: isUnassigned ? '#991b1b' : (totDeduc > 0 ? '#b71c1c' : 'inherit') }}>{formatCurrencyOrBlank(totDeduc)}</TableCell>
                           
                           {/* Sticky LIQUIDO A PAGAR cell */}
-                          <TableCell sx={{ textAlign: 'right', fontWeight: 'bold', color: liqPagar > 0 ? 'var(--verde-cfe)' : 'inherit', position: 'sticky', right: 130, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', borderLeft: '2px solid #005a3c', boxShadow: '-3px 0 6px rgba(0,0,0,0.06)' }}>
+                          <TableCell sx={{ textAlign: 'right', fontWeight: 'bold', color: isUnassigned ? '#991b1b' : (liqPagar > 0 ? 'var(--verde-cfe)' : 'inherit'), position: 'sticky', right: 130, zIndex: 11, backgroundColor: `${rowBg} !important`, borderLeft: '2px solid #005a3c', boxShadow: '-3px 0 6px rgba(0,0,0,0.06)' }}>
                             {formatCurrencyOrBlank(liqPagar)}
                           </TableCell>
 
                           {/* Sticky Action Cell: Edit / Save / Delete / Cancel */}
-                          <TableCell sx={{ textAlign: 'center', position: 'sticky', right: 0, zIndex: 11, backgroundColor: isEditing ? '#fefce8' : '#fff', borderLeft: '1px solid #e2e8f0', minWidth: 90 }}>
+                          <TableCell sx={{ textAlign: 'center', position: 'sticky', right: 0, zIndex: 11, backgroundColor: `${rowBg} !important`, borderLeft: '1px solid #e2e8f0', minWidth: 90 }}>
                             {isEditing ? (
                               <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }}>
                                 <IconButton

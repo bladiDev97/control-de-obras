@@ -41,7 +41,12 @@ async function bootstrap(): Promise<{ server: Handler; nestApp: any }> {
   await app.init();
 
   const expressApp = app.getHttpAdapter().getInstance();
-  const serverHandler = serverlessExpress({ app: expressApp });
+  const serverHandler = serverlessExpress({
+    app: expressApp,
+    binarySettings: {
+      contentTypes: ['application/pdf', 'image/*', 'application/octet-stream'],
+    },
+  });
   return { server: serverHandler, nestApp: app };
 }
 
