@@ -35,6 +35,11 @@ export interface ReusableTableProps<T> {
   defaultOrderBy?: keyof T;
   defaultOrderDir?: 'asc' | 'desc';
   customSort?: (a: T, b: T) => number;
+  showStatusFilter?: boolean;
+  showTipoObraFilter?: boolean;
+  showAnioFilter?: boolean;
+  showColorFilter?: boolean;
+  autoScrollToBottom?: boolean;
 }
 
 export default function ReusableTable<T extends Record<string, any>>({
@@ -44,6 +49,11 @@ export default function ReusableTable<T extends Record<string, any>>({
   defaultOrderBy,
   defaultOrderDir,
   customSort,
+  showStatusFilter,
+  showTipoObraFilter,
+  showAnioFilter,
+  showColorFilter,
+  autoScrollToBottom = false,
 }: ReusableTableProps<T>) {
   const [search, setSearch] = useState('');
   const [orderBy, setOrderBy] = useState<keyof T | null>(defaultOrderBy || null);
@@ -56,26 +66,31 @@ export default function ReusableTable<T extends Record<string, any>>({
   // Multi-color filter state
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
 
-  // Auto-scroll table container to bottom on load so smaller-day items are displayed first
-  useEffect(() => {
-    if (tableContainerRef.current && rows.length > 0) {
-      const timer = setTimeout(() => {
-        if (tableContainerRef.current) {
-          tableContainerRef.current.scrollTop = tableContainerRef.current.scrollHeight;
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [rows.length]);
-
-  // Check available filterable columns dynamically
-  const hasStatusColumn = rows.length > 0 && 'estatus' in rows[0];
-  const hasTipoObraColumn = rows.length > 0 && 'tipoObra' in rows[0];
-  const hasAnioColumn = rows.length > 0 && 'anio' in rows[0];
+  // Check available filterable columns dynamically (respecting props)
+  const hasStatusColumn = (showStatusFilter ?? true) && columns.some((col) => col.key === 'estatus');
+  const hasTipoObraColumn = (showTipoObraFilter ?? true) && rows.length > 0 && 'tipoObra' in rows[0];
+  const hasAnioColumn = (showAnioFilter ?? true) && rows.length > 0 && 'anio' in rows[0];
 
   const [statusFilter, setStatusFilter] = useState<string>('TODOS');
   const [tipoObraFilter, setTipoObraFilter] = useState<string>('TODOS');
   const [anioFilter, setAnioFilter] = useState<string>('TODOS');
+
+  // Auto-scroll table container to bottom on load if autoScrollToBottom is true
+  useEffect(() => {
+    if (autoScrollToBottom && tableContainerRef.current && rows.length > 0) {
+      const scrollToBottom = () => {
+        if (tableContainerRef.current) {
+          tableContainerRef.current.scrollTop = tableContainerRef.current.scrollHeight;
+        }
+      };
+      const timer1 = setTimeout(scrollToBottom, 100);
+      const timer2 = setTimeout(scrollToBottom, 300);
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, [rows.length, statusFilter, autoScrollToBottom]);
 
   // Helper to identify Días columns
   const isDiasColumn = (col: Column<T>) => {
@@ -98,10 +113,18 @@ export default function ReusableTable<T extends Record<string, any>>({
     return columns.some((col) => isDiasColumn(col));
   }, [columns]);
 
+  const hasColorFilter =
+    (showColorFilter ?? true) &&
+    (hasDiasColumn ||
+      (rows.length > 0 &&
+        ('diasSinCapitalizar' in rows[0] || 'dias' in rows[0] || 'diasParaVencerse' in rows[0])));
+
   // Helper to classify row color(s) for the COLOR: filter dropdown (based on DAYS / POR VENCER badge & text colors)
   const getRowColors = (row: any): string[] => {
     const colors: string[] = [];
-    const hasFechaFinConstruccion = !!(row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '');
+    const hasFechaFinConstruccion = !!(
+      row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== ''
+    );
 
     // 1. Check POR VENCER badge colors if applicable
     if (
@@ -114,15 +137,18 @@ export default function ReusableTable<T extends Record<string, any>>({
         if (!colors.includes('ROJO')) colors.push('ROJO');
       } else if (days >= 4 && days <= 10) {
         if (!colors.includes('NARANJA')) colors.push('NARANJA');
-      } else if (days >= 11) {
+      } else if (days > 10) {
         if (!colors.includes('VERDE')) colors.push('VERDE');
       }
     }
 
     // 2. Check DÍAS / DÍAS SIN CAPITALIZAR text & badge colors
-    const dayVal = typeof row.diasSinCapitalizar === 'number'
-      ? row.diasSinCapitalizar
-      : (typeof row.dias === 'number' ? row.dias : null);
+    const dayVal =
+      typeof row.diasSinCapitalizar === 'number'
+        ? row.diasSinCapitalizar
+        : typeof row.dias === 'number'
+        ? row.dias
+        : null;
 
     if (dayVal !== null) {
       if (dayVal >= 17) {
@@ -180,11 +206,15 @@ export default function ReusableTable<T extends Record<string, any>>({
       if (String(row.anio || '').trim() !== anioFilter) return false;
     }
     // 4. Color Filter
-    if (selectedColors.length > 0 && !selectedColors.includes('TODOS')) {
+    if (hasColorFilter && selectedColors.length > 0 && !selectedColors.includes('TODOS')) {
       const rowColors = getRowColors(row);
-      const matches = selectedColors.some((c) => 
-        rowColors.includes(c) || 
-        (c === 'NARANJA' && (rowColors.includes('AMARILLO') || rowColors.includes('AZUL') || rowColors.includes('NARANJA')))
+      const matches = selectedColors.some(
+        (c) =>
+          rowColors.includes(c) ||
+          (c === 'NARANJA' &&
+            (rowColors.includes('AMARILLO') ||
+              rowColors.includes('AZUL') ||
+              rowColors.includes('NARANJA')))
       );
       if (!matches) return false;
     }
@@ -221,7 +251,12 @@ export default function ReusableTable<T extends Record<string, any>>({
   return (
     <Paper className="card" sx={{ p: { xs: 1.5, sm: 2.5 }, width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
       {/* Toolbar: Search input + Multi-Dropdown Filters (Responsive Layout) */}
-      {(searchable || hasStatusColumn || hasTipoObraColumn || hasAnioColumn || hasDiasColumn) && (
+      {(searchable ||
+        hasStatusColumn ||
+        (hasTipoObraColumn && tipoObraOptions.length > 0) ||
+        (hasAnioColumn && anioOptions.length > 0) ||
+        hasColorFilter ||
+        hasDiasColumn) && (
         <Box
           sx={{
             display: 'flex',
@@ -341,93 +376,129 @@ export default function ReusableTable<T extends Record<string, any>>({
             )}
 
             {/* Color Filter Dropdown: VERDES (INVENTARIO), ROJAS (CAPITALIZAR), NARANJAS (CONCILIAR) */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
-              <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-                Color:
-              </Typography>
-              <Select
-                multiple
-                size="small"
-                fullWidth
-                value={selectedColors.length === 0 ? ['TODOS'] : selectedColors}
-                onChange={(e) => {
-                  const val = typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]);
-                  if (val.includes('TODOS') && !selectedColors.includes('TODOS') && val.length > 1) {
-                    setSelectedColors(['TODOS']);
-                  } else {
-                    const clean = val.filter((v) => v !== 'TODOS');
-                    setSelectedColors(clean.length === 0 ? ['TODOS'] : clean);
-                  }
-                }}
-                renderValue={(selected) => {
-                  if (selected.includes('TODOS') || selected.length === 0) return 'TODOS';
-                  return selected.map(c => {
-                    if (c === 'VERDE') return '🟢 VERDE (INVENTARIO)';
-                    if (c === 'ROJO') return '🔴 ROJO (CAPITALIZAR)';
-                    if (c === 'NARANJA' || c === 'AZUL' || c === 'AMARILLO') return '🟠 NARANJA (CONCILIAR)';
-                    return c;
-                  }).join(', ');
-                }}
-                sx={{
-                  height: 36,
-                  minWidth: { xs: 110, sm: 165 },
-                  maxWidth: { xs: 180, sm: 250 },
-                  fontSize: '0.8rem',
-                  borderRadius: '8px',
-                  backgroundColor: '#ffffff',
-                }}
-              >
-                <MenuItem value="TODOS" sx={{ fontSize: '0.8rem', fontWeight: selectedColors.includes('TODOS') || selectedColors.length === 0 ? 800 : 400 }}>
-                  TODOS
-                </MenuItem>
-                <MenuItem value="VERDE" sx={{ fontSize: '0.8rem', color: '#15803d', fontWeight: selectedColors.includes('VERDE') ? 800 : 400 }}>
-                  🟢 VERDE (INVENTARIO)
-                </MenuItem>
-                <MenuItem value="ROJO" sx={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: selectedColors.includes('ROJO') ? 800 : 400 }}>
-                  🔴 ROJO (CAPITALIZAR)
-                </MenuItem>
-                <MenuItem value="NARANJA" sx={{ fontSize: '0.8rem', color: '#EE6C00', fontWeight: selectedColors.includes('NARANJA') ? 800 : 400 }}>
-                  🟠 NARANJA (CONCILIAR)
-                </MenuItem>
-              </Select>
-            </Box>
+            {hasColorFilter && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
+                <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+                  Color:
+                </Typography>
+                <Select
+                  multiple
+                  size="small"
+                  fullWidth
+                  value={selectedColors.length === 0 ? ['TODOS'] : selectedColors}
+                  onChange={(e) => {
+                    const val =
+                      typeof e.target.value === 'string'
+                        ? e.target.value.split(',')
+                        : (e.target.value as string[]);
+                    if (val.includes('TODOS') && !selectedColors.includes('TODOS') && val.length > 1) {
+                      setSelectedColors(['TODOS']);
+                    } else {
+                      const clean = val.filter((v) => v !== 'TODOS');
+                      setSelectedColors(clean.length === 0 ? ['TODOS'] : clean);
+                    }
+                  }}
+                  renderValue={(selected) => {
+                    if (selected.includes('TODOS') || selected.length === 0) return 'TODOS';
+                    return selected
+                      .map((c) => {
+                        if (c === 'VERDE') return '🟢 VERDE';
+                        if (c === 'ROJO') return '🔴 ROJO';
+                        if (c === 'NARANJA' || c === 'AZUL' || c === 'AMARILLO') return '🟠 NARANJA';
+                        return c;
+                      })
+                      .join(', ');
+                  }}
+                  sx={{
+                    height: 36,
+                    minWidth: { xs: 110, sm: 140 },
+                    maxWidth: { xs: 180, sm: 230 },
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#ffffff',
+                  }}
+                >
+                  <MenuItem
+                    value="TODOS"
+                    sx={{
+                      fontSize: '0.8rem',
+                      fontWeight: selectedColors.includes('TODOS') || selectedColors.length === 0 ? 800 : 400,
+                    }}
+                  >
+                    TODOS
+                  </MenuItem>
+                  <MenuItem
+                    value="VERDE"
+                    sx={{
+                      fontSize: '0.8rem',
+                      color: '#15803d',
+                      fontWeight: selectedColors.includes('VERDE') ? 800 : 400,
+                    }}
+                  >
+                    🟢 VERDE (≤ 10 DÍAS)
+                  </MenuItem>
+                  <MenuItem
+                    value="ROJO"
+                    sx={{
+                      fontSize: '0.8rem',
+                      color: '#dc2626',
+                      fontWeight: selectedColors.includes('ROJO') ? 800 : 400,
+                    }}
+                  >
+                    🔴 ROJO (≥ 17 DÍAS)
+                  </MenuItem>
+                  <MenuItem
+                    value="NARANJA"
+                    sx={{
+                      fontSize: '0.8rem',
+                      color: '#EE6C00',
+                      fontWeight: selectedColors.includes('NARANJA') ? 800 : 400,
+                    }}
+                  >
+                    🟠 NARANJA (11 - 16 DÍAS)
+                  </MenuItem>
+                </Select>
+              </Box>
+            )}
 
             {/* Toggle button to show/hide Días columns with small Red / Green indicator circle */}
-            <Button
-              size="small"
-              onClick={() => setShowDias(!showDias)}
-              title={showDias ? 'Días Visibles (Clic para ocultar)' : 'Días Ocultos (Clic para mostrar)'}
-              sx={{
-                height: 36,
-                px: 1.5,
-                borderRadius: '20px',
-                border: '1px solid #cbd5e1 !important',
-                backgroundColor: '#ffffff !important',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 1,
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06) !important',
-                '&:hover': {
-                  backgroundColor: '#f8fafc !important',
-                  borderColor: '#94a3b8 !important',
-                },
-              }}
-            >
-              <Box
+            {hasDiasColumn && (
+              <Button
+                size="small"
+                onClick={() => setShowDias(!showDias)}
+                title={showDias ? 'Días Visibles (Clic para ocultar)' : 'Días Ocultos (Clic para mostrar)'}
                 sx={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  backgroundColor: showDias ? '#22c55e' : '#ef4444',
-                  boxShadow: showDias ? '0 0 6px rgba(34, 197, 94, 0.7)' : '0 0 6px rgba(239, 68, 68, 0.7)',
-                  transition: 'all 0.2s ease',
+                  height: 36,
+                  px: 1.5,
+                  borderRadius: '20px',
+                  border: '1px solid #cbd5e1 !important',
+                  backgroundColor: '#ffffff !important',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06) !important',
+                  '&:hover': {
+                    backgroundColor: '#f8fafc !important',
+                    borderColor: '#94a3b8 !important',
+                  },
                 }}
-              />
-              <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.76rem', color: '#334155' }}>
-                Días
-              </Typography>
-            </Button>
+              >
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    backgroundColor: showDias ? '#22c55e' : '#ef4444',
+                    boxShadow: showDias ? '0 0 6px rgba(34, 197, 94, 0.7)' : '0 0 6px rgba(239, 68, 68, 0.7)',
+                    transition: 'all 0.2s ease',
+                  }}
+                />
+                <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.76rem', color: '#334155' }}>
+                  Días
+                </Typography>
+              </Button>
+            )}
           </Box>
         </Box>
       )}

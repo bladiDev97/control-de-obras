@@ -776,7 +776,15 @@ export default function ObrasPage() {
       {loading ? (
         <Typography>Cargando obras...</Typography>
       ) : (
-        <ReusableTable columns={columns} rows={processedObras} customSort={customSortObras} />
+        <ReusableTable
+          columns={columns}
+          rows={processedObras}
+          customSort={customSortObras}
+          showTipoObraFilter={false}
+          showAnioFilter={false}
+          showColorFilter={false}
+          autoScrollToBottom={true}
+        />
       )}
 
       {/* Modal para Terminar / Registrar Término de Obra */}
