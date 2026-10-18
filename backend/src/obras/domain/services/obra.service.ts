@@ -365,8 +365,10 @@ export class ObraService {
     updatedData.rd = calculatedRd;
     if (cleanPoblacion) updatedData.poblacion = cleanPoblacion;
 
-    if (planoPdfPath) {
-      updatedData.planoPdf = planoPdfPath;
+    // Preserve existing planoPdf if a new file or URL is not explicitly provided
+    const resolvedPlanoPdf = planoPdfPath || (data.planoPdf && String(data.planoPdf).trim() !== '' ? data.planoPdf : existing?.planoPdf);
+    if (resolvedPlanoPdf) {
+      updatedData.planoPdf = resolvedPlanoPdf;
     }
 
     const prevContratoKey = (existing?.contrato || '').replace(/^contrato#/, '').trim();
@@ -700,13 +702,17 @@ export class ObraService {
     try {
       this.logger.log(`Triggering email assignment notification for obra: ${obraInput.sk}`);
 
-      // Ensure we have full Obra entity from DB
-      let obra = obraInput;
-      if (!obra.contrato || !obra.at || !obra.obra) {
+      // Ensure we have full Obra entity from DB, including existing planoPdf
+      let obra: IObra = { ...obraInput };
+      if (!obra.contrato || !obra.at || !obra.obra || !obra.planoPdf) {
         try {
           const freshObra = await this.obraRepository.obraDetail({ pk, sk: obraInput.sk });
           if (freshObra) {
-            obra = { ...freshObra, ...obraInput };
+            obra = {
+              ...freshObra,
+              ...obraInput,
+              planoPdf: obraInput.planoPdf || freshObra.planoPdf,
+            };
           }
         } catch (e) {
           this.logger.warn(`Could not refresh obra detail for ${obraInput.sk}:`, e);
@@ -991,7 +997,13 @@ export class ObraService {
           try {
             let buffer: Buffer;
             if (obra.planoPdf.includes('amazonaws.com')) {
-              buffer = await this.s3Service.getFileBuffer(obra.planoPdf);
+              try {
+                buffer = await this.s3Service.getFileBuffer(obra.planoPdf);
+              } catch (s3Err: any) {
+                this.logger.warn(`S3 getFileBuffer failed for ${obra.planoPdf}, trying HTTP download: ${s3Err.message}`);
+                const dlRes = await axios.get(obra.planoPdf, { responseType: 'arraybuffer' });
+                buffer = Buffer.from(dlRes.data);
+              }
             } else {
               const dlRes = await axios.get(obra.planoPdf, { responseType: 'arraybuffer' });
               buffer = Buffer.from(dlRes.data);

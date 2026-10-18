@@ -528,6 +528,7 @@ export default function ObrasPage() {
         ...payload,
         contratista: payload.contrato === 'ADMON' ? 'POR ADMINISTRACIÓN' : (contratista || undefined),
         diasObraAPORTACIONES: payload.diasObraAPORTACIONES ? Number(payload.diasObraAPORTACIONES) : undefined,
+        planoPdf: currentPdf ? undefined : ((currentAssigning as any).planoPdf || undefined),
       };
 
       if (payload.poblacion || payload.nombreSolicitante) {
@@ -1090,6 +1091,30 @@ export default function ObrasPage() {
             </div>
           )}
 
+
+          {assigning?.planoPdf && !planoPdf && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 14px',
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                color: '#166534',
+              }}
+            >
+              <span style={{ fontWeight: 700 }}>📄 Plano actual vinculado:</span>
+              <span style={{ textDecoration: 'underline', wordBreak: 'break-all' }}>
+                {assigning.planoPdf.split('/').pop()}
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#15803d', fontWeight: 600 }}>
+                (Se enviará adjunto al correo)
+              </span>
+            </div>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
             <div style={{ width: '100%' }}>
