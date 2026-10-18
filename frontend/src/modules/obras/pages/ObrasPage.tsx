@@ -3,6 +3,7 @@ import { Button, TextField, Typography, MenuItem, FormControlLabel, Switch, Dial
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PaymentsIcon from '@mui/icons-material/Payments';
@@ -146,12 +147,50 @@ export default function ObrasPage() {
   }, []);
 
   const handleContratoChange = (numeroContrato: string) => {
+    if (numeroContrato === 'ADMON') {
+      setAssignForm({
+        ...assignForm,
+        contrato: 'ADMON',
+        contratista: 'POR ADMINISTRACIÓN',
+      });
+      return;
+    }
     const selected = contratos.find((c) => c.numeroContrato === numeroContrato);
     setAssignForm({
       ...assignForm,
       contrato: numeroContrato,
       contratista: selected ? (selected.contratista || '') : '',
     });
+  };
+
+  const openAssignModal = (row: Obra, isReassign = false) => {
+    setAssigning(row);
+    setAssignForm({
+      at: row.at || '',
+      tipoObra: row.tipoObra || '',
+      orden: row.orden || '',
+      activo: row.activo || '',
+      obra: row.obra || '',
+      nombreSolicitante: row.nombreSolicitante || '',
+      poblacion: (row as any).poblacion || '',
+      municipio: (row as any).municipio || '',
+      fechaProgramada: formatDateForInput((row as any).fechaProgramada || ''),
+      fechaPago: formatDateForInput((row as any).fechaPago || ''),
+      fechaAsignacion: isReassign && row.fechaAsignacion ? formatDateForInput(row.fechaAsignacion) : new Date().toISOString().slice(0, 10),
+      contrato: row.contrato || '',
+      contratista: (row as any).contratista || (row.contrato === 'ADMON' ? 'POR ADMINISTRACIÓN' : ''),
+      fechaAut: formatDateForInput((row as any).fechaAut || ''),
+      fechaSupervision: formatDateForInput((row as any).fechaSupervision || ''),
+      tieneRetiro: !!(row as any).ordenRetiro || !!(row as any).atRetiro,
+      atRetiro: (row as any).atRetiro || '',
+      ordenRetiro: (row as any).ordenRetiro || '',
+      siadRetiro: (row as any).siadRetiro || '',
+      coordenadaX: (row as any).coordenadaX || '',
+      coordenadaY: (row as any).coordenadaY || '',
+      area: (row as any).area || '',
+      diasObraAPORTACIONES: (row as any).diasObraAPORTACIONES || '',
+    });
+    setPlanoPdf(null);
   };
   const columns: Column<Obra>[] = [
     {
@@ -276,33 +315,7 @@ export default function ObrasPage() {
         const handleEstatusClick = (e: React.MouseEvent) => {
           e.stopPropagation();
           if (row.estatus === 'PENDIENTE') {
-            setAssigning(row);
-            setAssignForm({
-              at: row.at || '',
-              tipoObra: row.tipoObra || '',
-              orden: row.orden || '',
-              activo: row.activo || '',
-              obra: row.obra || '',
-              nombreSolicitante: row.nombreSolicitante || '',
-              poblacion: (row as any).poblacion || '',
-              municipio: (row as any).municipio || '',
-              fechaProgramada: (row as any).fechaProgramada || '',
-              fechaPago: (row as any).fechaPago || '',
-              fechaAsignacion: new Date().toISOString().slice(0, 10),
-              contrato: row.contrato || '',
-              contratista: (row as any).contratista || '',
-              fechaAut: (row as any).fechaAut || '',
-              fechaSupervision: (row as any).fechaSupervision || '',
-              tieneRetiro: !!(row as any).ordenRetiro || !!(row as any).atRetiro,
-              atRetiro: (row as any).atRetiro || '',
-              ordenRetiro: (row as any).ordenRetiro || '',
-              siadRetiro: (row as any).siadRetiro || '',
-              coordenadaX: (row as any).coordenadaX || '',
-              coordenadaY: (row as any).coordenadaY || '',
-              area: (row as any).area || '',
-              diasObraAPORTACIONES: (row as any).diasObraAPORTACIONES || '',
-            });
-            setPlanoPdf(null);
+            openAssignModal(row, false);
           } else if (row.estatus === 'ASIGNADA') {
             setSelected(row);
             setTerminarForm({
@@ -497,9 +510,9 @@ export default function ObrasPage() {
     setAssigning(null);
     setPlanoPdf(null);
 
-    // Show Apple Loading Overlay HUD
-    setProcessingTitle('Asignando Obra');
-    setProcessingSubtitle(`Asignando ${currentAssigning.solicitudPo || currentAssigning.obra || 'la obra'}... Por favor espere.`);
+    const isReassign = Boolean(currentAssigning.contrato);
+    setProcessingTitle(isReassign ? 'Reasignando Obra' : 'Asignando Obra');
+    setProcessingSubtitle(`${isReassign ? 'Reasignando' : 'Asignando'} ${currentAssigning.solicitudPo || currentAssigning.obra || 'la obra'}... Por favor espere.`);
     setIsProcessing(true);
 
     try {
@@ -513,6 +526,7 @@ export default function ObrasPage() {
       const cleanPayload: any = {
         obra: currentAssigning.obra,
         ...payload,
+        contratista: payload.contrato === 'ADMON' ? 'POR ADMINISTRACIÓN' : (contratista || undefined),
         diasObraAPORTACIONES: payload.diasObraAPORTACIONES ? Number(payload.diasObraAPORTACIONES) : undefined,
       };
 
@@ -819,13 +833,17 @@ export default function ObrasPage() {
         </div>
       </ReusableModal>
 
-      {/* Modal para Asignar Obra */}
+      {/* Modal para Asignar / Reasignar Obra */}
       <ReusableModal
         open={!!assigning}
-        title={`Asignar Obra / PO: ${assigning?.solicitudPo}`}
+        title={
+          assigning?.contrato
+            ? `Reasignar Obra / PO: ${assigning?.solicitudPo}`
+            : `Asignar Obra / PO: ${assigning?.solicitudPo}`
+        }
         onClose={() => setAssigning(null)}
         onConfirm={handleConfirmAsignar}
-        confirmLabel="Asignar"
+        confirmLabel={assigning?.contrato ? 'Reasignar' : 'Asignar'}
       >
         <div
           style={{
@@ -967,6 +985,9 @@ export default function ObrasPage() {
               onChange={(e) => handleContratoChange(e.target.value)}
               fullWidth
             >
+              <MenuItem value="ADMON" style={{ fontWeight: 700, color: '#059669' }}>
+                ADMON - POR ADMINISTRACIÓN (CFE)
+              </MenuItem>
               {contratos.map((c) => (
                 <MenuItem key={c.numeroContrato} value={c.numeroContrato}>
                   {c.numeroContrato} - {c.contratista}
@@ -1694,59 +1715,84 @@ export default function ObrasPage() {
                 justifyContent: 'space-between',
               }}
             >
-              <Button
-                onClick={() => {
-                  const row = previewObra;
-                  if (row) {
-                    setPreviewObra(null);
-                    setEditing(row);
-                    setEditForm({
-                      solicitudPo: row.solicitudPo,
-                      at: row.at || '',
-                      obra: row.obra || '',
-                      anio: row.anio || '',
-                      tipoObra: row.tipoObra || '',
-                      activo: row.activo || '',
-                      orden: row.orden || '',
-                      poblacion: (row as any).poblacion || '',
-                      municipio: (row as any).municipio || '',
-                      nombreSolicitante: row.nombreSolicitante || '',
-                      coordenadaX: row.coordenadaX || '',
-                      coordenadaY: row.coordenadaY || '',
-                      contrato: row.contrato || '',
-                      contratista: (row as any).contratista || '',
-                      tieneRetiro: !!(row as any).ordenRetiro || !!(row as any).atRetiro,
-                      atRetiro: (row as any).atRetiro || '',
-                      siadRetiro: (row as any).siadRetiro || '',
-                      ordenRetiro: (row as any).ordenRetiro || '',
-                      fechaPago: formatDateForInput((row as any).fechaPago),
-                      fechaProgramada: formatDateForInput((row as any).fechaProgramada),
-                      fechaAut: formatDateForInput((row as any).fechaAut),
-                      fechaSupervision: formatDateForInput((row as any).fechaSupervision),
-                      fechaAsignacion: formatDateForInput(row.fechaAsignacion),
-                      fechaFinConstruccion: formatDateForInput((row as any).fechaFinConstruccion || (row as any).fechaTermino),
-                      fechaTerminoCampo: formatDateForInput(row.fechaTerminoCampo),
-                      fechaCapitalizacion: formatDateForInput(row.fechaCapitalizacion),
-                      estatus: row.estatus || '',
-                      area: (row as any).area || '',
-                      diasObraAPORTACIONES: (row as any).diasObraAPORTACIONES || '',
-                    });
-                  }
-                }}
-                variant="contained"
-                style={{
-                  backgroundColor: '#059669',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  borderRadius: '10px',
-                  padding: '8px 18px',
-                  textTransform: 'none',
-                  boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)',
-                }}
-                startIcon={<EditIcon />}
-              >
-                Editar Obra
-              </Button>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <Button
+                  onClick={() => {
+                    const row = previewObra;
+                    if (row) {
+                      setPreviewObra(null);
+                      setEditing(row);
+                      setEditForm({
+                        solicitudPo: row.solicitudPo,
+                        at: row.at || '',
+                        obra: row.obra || '',
+                        anio: row.anio || '',
+                        tipoObra: row.tipoObra || '',
+                        activo: row.activo || '',
+                        orden: row.orden || '',
+                        poblacion: (row as any).poblacion || '',
+                        municipio: (row as any).municipio || '',
+                        nombreSolicitante: row.nombreSolicitante || '',
+                        coordenadaX: row.coordenadaX || '',
+                        coordenadaY: row.coordenadaY || '',
+                        contrato: row.contrato || '',
+                        contratista: (row as any).contratista || '',
+                        tieneRetiro: !!(row as any).ordenRetiro || !!(row as any).atRetiro,
+                        atRetiro: (row as any).atRetiro || '',
+                        siadRetiro: (row as any).siadRetiro || '',
+                        ordenRetiro: (row as any).ordenRetiro || '',
+                        fechaPago: formatDateForInput((row as any).fechaPago),
+                        fechaProgramada: formatDateForInput((row as any).fechaProgramada),
+                        fechaAut: formatDateForInput((row as any).fechaAut),
+                        fechaSupervision: formatDateForInput((row as any).fechaSupervision),
+                        fechaAsignacion: formatDateForInput(row.fechaAsignacion),
+                        fechaFinConstruccion: formatDateForInput((row as any).fechaFinConstruccion || (row as any).fechaTermino),
+                        fechaTerminoCampo: formatDateForInput(row.fechaTerminoCampo),
+                        fechaCapitalizacion: formatDateForInput(row.fechaCapitalizacion),
+                        estatus: row.estatus || '',
+                        area: (row as any).area || '',
+                        diasObraAPORTACIONES: (row as any).diasObraAPORTACIONES || '',
+                      });
+                    }
+                  }}
+                  variant="contained"
+                  style={{
+                    backgroundColor: '#059669',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    borderRadius: '10px',
+                    padding: '8px 18px',
+                    textTransform: 'none',
+                    boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)',
+                  }}
+                  startIcon={<EditIcon />}
+                >
+                  Editar Obra
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    const row = previewObra;
+                    if (row) {
+                      setPreviewObra(null);
+                      openAssignModal(row, true);
+                    }
+                  }}
+                  variant="contained"
+                  style={{
+                    backgroundColor: '#0284c7',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    borderRadius: '10px',
+                    padding: '8px 18px',
+                    textTransform: 'none',
+                    boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
+                  }}
+                  startIcon={<SwapHorizIcon />}
+                >
+                  Reasignar Obra
+                </Button>
+              </div>
 
               <Button
                 onClick={() => setPreviewObra(null)}
@@ -1929,6 +1975,14 @@ export default function ObrasPage() {
               size="small"
               value={editForm.contrato}
               onChange={(e) => {
+                if (e.target.value === 'ADMON') {
+                  setEditForm({
+                    ...editForm,
+                    contrato: 'ADMON',
+                    contratista: 'POR ADMINISTRACIÓN',
+                  });
+                  return;
+                }
                 const selected = contratos.find((c) => c.numeroContrato === e.target.value);
                 setEditForm({
                   ...editForm,
@@ -1939,6 +1993,9 @@ export default function ObrasPage() {
               fullWidth
             >
               <MenuItem value=""><em>Ninguno</em></MenuItem>
+              <MenuItem value="ADMON" style={{ fontWeight: 700, color: '#059669' }}>
+                ADMON - POR ADMINISTRACIÓN (CFE)
+              </MenuItem>
               {contratos.map((c) => (
                 <MenuItem key={c.numeroContrato} value={c.numeroContrato}>
                   {c.numeroContrato} - {c.contratista}

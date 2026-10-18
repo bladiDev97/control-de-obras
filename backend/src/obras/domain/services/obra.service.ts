@@ -125,8 +125,11 @@ export class ObraService {
         obra.fechaCapitalizacion,
       );
 
-      const contract = obra.contrato ? contractMap.get(obra.contrato) : null;
-      const contratista = contract ? (contract.contratista || '') : '';
+      const isAdmonContract = obra.contrato && (obra.contrato.toUpperCase() === 'ADMON' || obra.contrato.toUpperCase().includes('ADMINISTRAC'));
+      const contract = obra.contrato && !isAdmonContract ? contractMap.get(obra.contrato) : null;
+      const contratista = isAdmonContract
+        ? 'POR ADMINISTRACIÓN'
+        : (contract ? (contract.contratista || '') : (obra.contratista || ''));
 
       const isAssigned = this.isObraAsignada(obra);
       const padding = obra.oficioConsecutivo ? String(obra.oficioConsecutivo).padStart(4, '0') : '0000';
@@ -272,6 +275,11 @@ export class ObraService {
       updatedData.planoPdf = planoPdfPath;
     }
 
+    if (updatedData.contrato && (updatedData.contrato.toUpperCase() === 'ADMON' || updatedData.contrato.toUpperCase().includes('ADMINISTRAC'))) {
+      updatedData.contrato = 'ADMON';
+      updatedData.contratista = 'POR ADMINISTRACIÓN';
+    }
+
     updatedData.estatus = this.determineEstatus(updatedData);
     const updated = await this.obraRepository.obraUpdate(updatedData);
 
@@ -361,10 +369,19 @@ export class ObraService {
       updatedData.planoPdf = planoPdfPath;
     }
 
+    const prevContratoKey = (existing?.contrato || '').replace(/^contrato#/, '').trim();
+    const newContratoKey = (data.contrato || updatedData.contrato || '').replace(/^contrato#/, '').trim();
+    const isAdmon = newContratoKey.toUpperCase() === 'ADMON' || newContratoKey.toUpperCase().includes('ADMINISTRAC');
+
+    if (isAdmon) {
+      updatedData.contrato = 'ADMON';
+      updatedData.contratista = 'POR ADMINISTRACIÓN';
+    }
+
     updatedData.estatus = this.determineEstatus(updatedData);
 
-    // 1. Fast validation of contract & emails before updating DB
-    if (updatedData.contrato) {
+    // 1. Fast validation of contract & emails before updating DB (only for external contractors)
+    if (!isAdmon && updatedData.contrato) {
       const cleanContratoKey = updatedData.contrato.replace(/^contrato#/, '');
       let contrato: any = null;
       try {
@@ -394,11 +411,26 @@ export class ObraService {
     // 3. Ensure unique persistent consecutive number
     const consecutivoNum = await this.ensureOficioConsecutivo(pk, updatedData);
 
-    // 4. Dispatch email notification before ending Lambda execution to guarantee delivery
-    try {
-      await this.sendAssignmentNotificationEmail(pk, updatedData);
-    } catch (err: any) {
-      this.logger.error(`[EMAIL DISPATCH ERROR] Error sending email for obra ${updatedData.sk}:`, err);
+    // 4. Contractor change detection for reassignment
+    const wasPreviouslyAssigned = Boolean(prevContratoKey);
+    const contractorChanged = wasPreviouslyAssigned && prevContratoKey.toUpperCase() !== newContratoKey.toUpperCase();
+
+    // 5. If contractor changed, notify previous contractor about the reassignment due to urgency
+    if (contractorChanged && prevContratoKey.toUpperCase() !== 'ADMON' && existing) {
+      try {
+        await this.sendReassignmentCancellationEmail(pk, existing, updatedData);
+      } catch (err: any) {
+        this.logger.error(`[REASSIGNMENT CANCELLATION EMAIL ERROR] Error sending cancellation to previous contractor for obra ${updatedData.sk}:`, err);
+      }
+    }
+
+    // 6. Dispatch email notification to new contractor (or resend to same contractor)
+    if (!isAdmon && updatedData.contrato) {
+      try {
+        await this.sendAssignmentNotificationEmail(pk, updatedData);
+      } catch (err: any) {
+        this.logger.error(`[EMAIL DISPATCH ERROR] Error sending email for obra ${updatedData.sk}:`, err);
+      }
     }
 
     const padding = consecutivoNum ? String(consecutivoNum).padStart(4, '0') : '0000';
@@ -413,6 +445,255 @@ export class ObraService {
       oficioConsecutivo: consecutivoNum || updated.oficioConsecutivo,
       numeroOficio,
     };
+  }
+
+  /**
+   * Notifies the previous contractor when an Obra is reassigned to another contractor or ADMON due to urgency.
+   */
+  private async sendReassignmentCancellationEmail(pk: string, previousObra: IObra, updatedObra: IObra): Promise<void> {
+    try {
+      const cleanPrevContrato = (previousObra.contrato || '').replace(/^contrato#/, '').trim();
+      if (!cleanPrevContrato || cleanPrevContrato.toUpperCase() === 'ADMON') {
+        return;
+      }
+
+      this.logger.log(`Triggering reassignment notice to previous contractor (${cleanPrevContrato}) for obra: ${previousObra.sk}`);
+
+      // 1. Fetch Previous Contract details to resolve previous Contractor emails
+      let contractorEmails: string[] = [];
+      let contractorName = previousObra.contratista || 'Estimado Contratista';
+      try {
+        const contrato = await this.contratoRepository.contratoDetail({ pk, sk: cleanPrevContrato });
+        if (contrato) {
+          const rawCorreos: any = contrato.correos || [];
+          contractorEmails = Array.isArray(rawCorreos)
+            ? rawCorreos
+                .map((item: any) => (typeof item === 'string' ? item : item?.S || item?.s || String(item)))
+                .filter((e) => Boolean(e) && e !== '[object Object]')
+            : [String(rawCorreos)];
+          if (contrato.contratista) {
+            contractorName = contrato.contratista;
+          }
+        }
+      } catch (err: any) {
+        this.logger.error(`Error loading previous contract ${cleanPrevContrato} for cancellation email:`, err);
+      }
+
+      if (contractorEmails.length === 0) {
+        this.logger.warn(`Skipping reassignment notice: previous contract ${cleanPrevContrato} has no emails registered.`);
+        return;
+      }
+
+      // 2. Fetch Personnel to get CC emails (Supervisor and Auxiliar)
+      let supervisorEmail = '';
+      let supervisorNombre = 'Supervisor de Obra';
+      let supervisorCargo = 'Supervisor de Obra';
+      let supervisorZona = 'Zona Pátzcuaro';
+      let auxiliarEmail = '';
+
+      try {
+        const personnel = await this.personalRepository.personalListAll(pk);
+        if (personnel && personnel.length > 0) {
+          const supervisor = personnel.find(p => p.cargo && p.cargo.toLowerCase().includes('supervisor'));
+          if (supervisor) {
+            supervisorEmail = supervisor.correo;
+            supervisorNombre = `${supervisor.nombres} ${supervisor.apellidoPaterno || ''} ${supervisor.apellidoMaterno || ''}`.trim();
+            supervisorCargo = supervisor.cargo || 'Supervisor de Obra';
+            supervisorZona = supervisor.zona || 'Zona Pátzcuaro';
+          }
+          const auxiliar = personnel.find(p => p.cargo && (p.cargo.toLowerCase().includes('auxiliar') || p.cargo.toLowerCase().includes('administrativo')));
+          if (auxiliar) {
+            auxiliarEmail = auxiliar.correo;
+          }
+        }
+      } catch (err) {
+        this.logger.error('Error loading personnel for CC in cancellation email', err);
+      }
+
+      const ccEmails: string[] = [];
+      if (supervisorEmail) ccEmails.push(supervisorEmail);
+      if (auxiliarEmail) ccEmails.push(auxiliarEmail);
+
+      const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 0;
+          }
+          .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+          }
+          .header {
+            background-color: #0369a1;
+            color: #ffffff;
+            padding: 26px 20px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+          }
+          .header p {
+            margin: 5px 0 0 0;
+            font-size: 0.88rem;
+            opacity: 0.9;
+          }
+          .content {
+            padding: 28px 24px;
+          }
+          .greeting {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 14px;
+          }
+          .alert-banner {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 14px 16px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            color: #92400e;
+            margin-bottom: 22px;
+            font-weight: 600;
+          }
+          .body-text {
+            font-size: 0.95rem;
+            color: #334155;
+            margin-bottom: 20px;
+            line-height: 1.6;
+          }
+          .details-card {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+          }
+          .details-table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          .details-table td {
+            padding: 6px 0;
+            font-size: 0.92rem;
+          }
+          .label {
+            font-weight: 600;
+            color: #64748b;
+            width: 130px;
+          }
+          .value {
+            color: #0f172a;
+            font-weight: 600;
+          }
+          .salutation {
+            margin-top: 25px;
+            font-size: 0.92rem;
+            color: #334155;
+          }
+          .footer {
+            background-color: #f8fafc;
+            text-align: center;
+            padding: 16px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            border-top: 1px solid #e2e8f0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>CFE Distribución</h1>
+            <p>Zona Pátzcuaro • Notificación de Reasignación de Obra</p>
+          </div>
+          <div class="content">
+            <div class="greeting">Estimado contratista (${contractorName}):</div>
+            
+            <div class="alert-banner">
+              Estimado contratista, esta obra se ha reasignado por la premura y necesidades operativas de la misma.
+            </div>
+
+            <div class="body-text">
+              Por medio de la presente, hacemos de su conocimiento que la siguiente obra ha sido reasignada en nuestro sistema de control de obras:
+            </div>
+
+            <div class="details-card">
+              <table class="details-table">
+                <tr>
+                  <td class="label">Solicitud / PO:</td>
+                  <td class="value">${previousObra.solicitudPo || previousObra.sk?.replace('obra#', '') || '-'}</td>
+                </tr>
+                <tr>
+                  <td class="label">Obra:</td>
+                  <td class="value">${previousObra.obra || '-'}</td>
+                </tr>
+                <tr>
+                  <td class="label">AT:</td>
+                  <td class="value">${previousObra.at || '-'}</td>
+                </tr>
+                <tr>
+                  <td class="label">Activo:</td>
+                  <td class="value">${previousObra.activo || '-'}</td>
+                </tr>
+                <tr>
+                  <td class="label">Orden:</td>
+                  <td class="value">${previousObra.orden || '-'}</td>
+                </tr>
+                <tr>
+                  <td class="label">Población / RD:</td>
+                  <td class="value">${previousObra.rd || previousObra.poblacion || '-'}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="body-text">
+              Agradecemos de antemano su comprensión, atención y constante colaboración.
+            </div>
+
+            <div class="salutation">
+              Atentamente,<br />
+              <strong>${supervisorNombre}</strong><br />
+              ${supervisorCargo}<br />
+              CFE Distribución ${supervisorZona}
+            </div>
+          </div>
+          <div class="footer">
+            Mensaje automático del Sistema de Control de Obras CFE. Favor de no responder directamente a esta dirección de envío.
+          </div>
+        </div>
+      </body>
+      </html>
+      `;
+
+      await this.mailService.sendMail({
+        to: contractorEmails,
+        cc: ccEmails,
+        subject: `Notificación de Reasignación de Obra ${previousObra.at || ''} / ${previousObra.obra || ''} - PO: ${previousObra.solicitudPo || ''}`,
+        html: emailHtml,
+      });
+
+      this.logger.log(`Successfully sent reassignment notice to previous contractor (${contractorName}: ${contractorEmails.join(', ')})`);
+    } catch (err: any) {
+      this.logger.error('Error in sendReassignmentCancellationEmail:', err);
+    }
   }
 
   private async sendAssignmentNotificationEmail(pk: string, obraInput: IObra): Promise<void> {
