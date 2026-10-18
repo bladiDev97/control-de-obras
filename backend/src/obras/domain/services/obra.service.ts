@@ -751,6 +751,7 @@ export class ObraService {
       let supervisorRpe = 'N/A';
       let supervisorCargo = 'Supervisor de Obra';
       let supervisorZona = 'Zona Pátzcuaro';
+      let supervisorFirmaUrl = '';
 
       let auxiliarEmail = '';
 
@@ -767,6 +768,7 @@ export class ObraService {
             supervisorRpe = supervisor.rpe || 'N/A';
             supervisorCargo = supervisor.cargo || 'Supervisor de Obra';
             supervisorZona = supervisor.zona || 'Zona Pátzcuaro';
+            supervisorFirmaUrl = supervisor.firmaUrl || '';
           }
 
           // Find Auxiliar Administrativo
@@ -817,7 +819,8 @@ export class ObraService {
         supervisorNombre,
         supervisorRpe,
         supervisorCargo,
-        supervisorZona
+        supervisorZona,
+        supervisorFirmaUrl,
       };
 
       const pdfBuffer = await this.pdfService.generateOficioPdf(pdfData);

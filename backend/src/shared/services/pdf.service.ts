@@ -2,10 +2,32 @@ import { Injectable } from '@nestjs/common';
 import * as PDFDocument from 'pdfkit';
 import * as fs from 'fs';
 import * as path from 'path';
+import axios from 'axios';
 
 @Injectable()
 export class PdfService {
-  public generateOficioPdf(data: {
+  private async resolveImageBuffer(imgUrlOrBase64?: string): Promise<Buffer | null> {
+    if (!imgUrlOrBase64) return null;
+    try {
+      const s = String(imgUrlOrBase64).trim();
+      if (s.startsWith('data:image/')) {
+        const base64Data = s.replace(/^data:image\/\w+;base64,/, '');
+        return Buffer.from(base64Data, 'base64');
+      }
+      if (s.startsWith('http://') || s.startsWith('https://')) {
+        const res = await axios.get(s, { responseType: 'arraybuffer', timeout: 7000 });
+        return Buffer.from(res.data);
+      }
+      if (fs.existsSync(s)) {
+        return fs.readFileSync(s);
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  public async generateOficioPdf(data: {
     consecutivo: string;
     dateText: string;
     contratista: string;
@@ -29,7 +51,9 @@ export class PdfService {
     supervisorRpe: string;
     supervisorCargo: string;
     supervisorZona: string;
+    supervisorFirmaUrl?: string;
   }): Promise<Buffer> {
+    const firmaBuffer = await this.resolveImageBuffer(data.supervisorFirmaUrl);
     return new Promise((resolve, reject) => {
       try {
         // Page size is letter (612 x 792 points).
@@ -149,18 +173,32 @@ export class PdfService {
         doc.font('Helvetica').text('Se adjunta al presente, plano del proyecto.', 70, doc.y, { width: 472 });
         doc.moveDown(0.4);
         doc.font('Helvetica').text('Sin otro particular de momento, quedo de Usted.', 70, doc.y, { width: 472 });
-        doc.moveDown(6.5);
 
         // 8. Signature Block
         if (data.mostrarSupervisor) {
+          doc.moveDown(firmaBuffer ? 1.0 : 4.0);
           doc.font('Helvetica-Bold').fontSize(11).text('Atentamente', 70, doc.y, { align: 'center', width: 472 });
-          doc.moveDown(1.5);
-          
+
+          if (firmaBuffer) {
+            const imgWidth = 140;
+            const imgHeight = 45;
+            const imgX = 70 + (472 - imgWidth) / 2;
+            const imgY = doc.y + 4;
+            try {
+              doc.image(firmaBuffer, imgX, imgY, { fit: [imgWidth, imgHeight], align: 'center' });
+            } catch {
+              // fallback if image drawing encounters an issue
+            }
+            doc.y = imgY + imgHeight + 4;
+          } else {
+            doc.moveDown(2.5);
+          }
+
           const lineY = doc.y;
           doc.strokeColor('#212121').lineWidth(0.5);
           doc.moveTo(196, lineY).lineTo(416, lineY).stroke();
           doc.moveDown(0.5);
-          
+
           doc.font('Helvetica-Bold').fontSize(10).text(data.supervisorNombre, 70, doc.y, { align: 'center', width: 472 });
           doc.font('Helvetica').fontSize(9);
           doc.text(`RPE: ${data.supervisorRpe}`, 70, doc.y, { align: 'center', width: 472 });
