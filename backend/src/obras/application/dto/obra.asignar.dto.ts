@@ -52,6 +52,11 @@ export class ObrasAsignarDto {
   @IsOptional()
   contrato?: string;
 
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  contratista?: string;
+
 
 
   @ApiPropertyOptional()
