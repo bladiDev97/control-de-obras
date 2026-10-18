@@ -159,72 +159,177 @@ export class ContratoRepository
   }
 
   // --- Estimaciones ---
-  public async estimacionSave(body: IEstimacion): Promise<EstimacionEntity> {
+  public async estimacionSave(body: IEstimacion): Promise<any> {
     const rawPk = body.pk;
     const encryptedPk = CryptoService.encryptEmail(rawPk);
-    const sk = `estimacion#${body.numeroContrato}#${body.at}#${body.numeroEstimacion}`;
 
-    const entity = Object.assign(new EstimacionEntity(), body);
-    entity.pk = encryptedPk;
-    entity.sk = sk;
-    entity.isDelete = false;
-
-    let existing: EstimacionEntity | null = null;
-    try {
-      existing = await this.entityManager.findOne<EstimacionEntity, Partial<EstimacionEntity>>(EstimacionEntity, { pk: encryptedPk, sk });
-    } catch {
-      // ignore
-    }
-
-    let saved: EstimacionEntity;
-    if (existing) {
-      const { pk, sk: itemSk, ...propertiesUpdate } = entity;
-      saved = await this.entityManager.update<EstimacionEntity>(
-        EstimacionEntity,
-        { pk: encryptedPk, sk },
-        propertiesUpdate as EstimacionEntity
-      );
-    } else {
-      saved = await this.entityManager.create<EstimacionEntity>(entity);
-    }
-    saved.pk = CryptoService.decryptEmail(saved.pk);
-    return saved;
-  }
-
-  public async estimacionList(pk: string, numeroContrato: string): Promise<EstimacionEntity[]> {
-    const encryptedPk = CryptoService.encryptEmail(pk);
-    const result = await this.entityManager.find<EstimacionEntity>(
-      EstimacionEntity,
+    const result = await this.entityManager.find<ObraEntity>(
+      ObraEntity,
       encryptedPk,
       {
         keyCondition: {
-          BEGINS_WITH: `estimacion#${numeroContrato}#`
+          BEGINS_WITH: `obra#`,
+        },
+      },
+    );
+
+    const targetAt = (body.at || '').trim().toUpperCase();
+    const obra = result.items.find(
+      (o) =>
+        !o.isDelete &&
+        (((o.at || '').trim().toUpperCase() === targetAt) ||
+          ((o.solicitudPo || '').trim().toUpperCase() === targetAt) ||
+          ((o.obra || '').trim().toUpperCase() === (body.obra || '').trim().toUpperCase())),
+    );
+
+    if (obra) {
+      let currentEstimaciones: any[] = Array.isArray(obra.estimaciones) ? [...obra.estimaciones] : [];
+      const numEstStr = String(body.numeroEstimacion || '').trim();
+      const existingIdx = currentEstimaciones.findIndex(
+        (e) => String(e.numeroEstimacion || '').trim() === numEstStr,
+      );
+
+      const estItem = {
+        id: `${body.at}#${body.numeroEstimacion}`,
+        numeroEstimacion: body.numeroEstimacion,
+        numeroContrato: body.numeroContrato,
+        at: body.at,
+        obra: body.obra || obra.obra,
+        conceptos: body.conceptos || {},
+        compSind: typeof body.compSind === 'number' ? body.compSind : 0,
+        retenerIva: Boolean(body.retenerIva),
+        avanceMvmo: body.avanceMvmo || '',
+        bitacoraSupervision: body.bitacoraSupervision || '',
+        bitacoraAutorizacion: body.bitacoraAutorizacion || '',
+      };
+
+      if (existingIdx > -1) {
+        currentEstimaciones[existingIdx] = estItem;
+      } else {
+        currentEstimaciones.push(estItem);
+      }
+
+      currentEstimaciones.sort((a, b) => {
+        const numA = parseInt(a.numeroEstimacion, 10) || 0;
+        const numB = parseInt(b.numeroEstimacion, 10) || 0;
+        return numA - numB;
+      });
+
+      obra.estimaciones = currentEstimaciones;
+      await this.entityManager.update<ObraEntity>(
+        ObraEntity,
+        { pk: encryptedPk, sk: obra.sk },
+        { estimaciones: obra.estimaciones } as Partial<ObraEntity>,
+      );
+
+      return {
+        ...estItem,
+        pk: CryptoService.decryptEmail(obra.pk),
+        sk: `estimacion#${body.numeroContrato}#${body.at}#${body.numeroEstimacion}`,
+      };
+    }
+
+    return body;
+  }
+
+  public async estimacionList(pk: string, numeroContrato: string): Promise<any[]> {
+    const encryptedPk = CryptoService.encryptEmail(pk);
+    const result = await this.entityManager.find<ObraEntity>(
+      ObraEntity,
+      encryptedPk,
+      {
+        keyCondition: {
+          BEGINS_WITH: `obra#`,
+        },
+      },
+    );
+
+    const matched = result.items.filter(
+      (item) => !item.isDelete && item.contrato && item.contrato.trim() === numeroContrato.trim(),
+    );
+
+    const allEstimaciones: any[] = [];
+    for (const item of matched) {
+      if (Array.isArray(item.estimaciones)) {
+        for (const est of item.estimaciones) {
+          allEstimaciones.push({
+            ...est,
+            pk: CryptoService.decryptEmail(item.pk),
+            sk: `estimacion#${numeroContrato}#${est.at || item.at}#${est.numeroEstimacion}`,
+          });
         }
       }
-    );
-    return result.items.map(item => {
-      item.pk = CryptoService.decryptEmail(item.pk);
-      return item;
-    }).filter(item => !item.isDelete);
+    }
+
+    return allEstimaciones;
   }
 
   public async estimacionDelete(pk: string, numeroContrato: string, at: string, numeroEstimacion: string): Promise<boolean> {
     const encryptedPk = CryptoService.encryptEmail(pk);
-    const sk = `estimacion#${numeroContrato}#${at}#${numeroEstimacion}`;
-    try {
-      await this.entityManager.delete<EstimacionEntity>(EstimacionEntity, { pk: encryptedPk, sk });
+    const result = await this.entityManager.find<ObraEntity>(
+      ObraEntity,
+      encryptedPk,
+      {
+        keyCondition: {
+          BEGINS_WITH: `obra#`,
+        },
+      },
+    );
+
+    const targetAt = (at || '').trim().toUpperCase();
+    const obra = result.items.find(
+      (o) =>
+        !o.isDelete &&
+        (((o.at || '').trim().toUpperCase() === targetAt) ||
+          ((o.solicitudPo || '').trim().toUpperCase() === targetAt)),
+    );
+
+    if (obra && Array.isArray(obra.estimaciones)) {
+      const numEstStr = String(numeroEstimacion || '').trim();
+      obra.estimaciones = obra.estimaciones.filter(
+        (e) => String(e.numeroEstimacion || '').trim() !== numEstStr,
+      );
+      await this.entityManager.update<ObraEntity>(
+        ObraEntity,
+        { pk: encryptedPk, sk: obra.sk },
+        { estimaciones: obra.estimaciones } as Partial<ObraEntity>,
+      );
       return true;
-    } catch {
-      return false;
     }
+    return false;
   }
 
   public async estimacionBlockDelete(pk: string, numeroContrato: string, numeroEstimacion: string): Promise<boolean> {
-    const list = await this.estimacionList(pk, numeroContrato);
-    const matched = list.filter(item => String(item.numeroEstimacion) === String(numeroEstimacion));
-    for (const item of matched) {
-      const encryptedPk = CryptoService.encryptEmail(pk);
-      await this.entityManager.delete<EstimacionEntity>(EstimacionEntity, { pk: encryptedPk, sk: item.sk });
+    const encryptedPk = CryptoService.encryptEmail(pk);
+    const result = await this.entityManager.find<ObraEntity>(
+      ObraEntity,
+      encryptedPk,
+      {
+        keyCondition: {
+          BEGINS_WITH: `obra#`,
+        },
+      },
+    );
+
+    const matchedObras = result.items.filter(
+      (item) => !item.isDelete && item.contrato && item.contrato.trim() === numeroContrato.trim(),
+    );
+
+    const numEstStr = String(numeroEstimacion || '').trim();
+    for (const obra of matchedObras) {
+      if (Array.isArray(obra.estimaciones)) {
+        const filtered = obra.estimaciones.filter(
+          (e) => String(e.numeroEstimacion || '').trim() !== numEstStr,
+        );
+        if (filtered.length !== obra.estimaciones.length) {
+          obra.estimaciones = filtered;
+          await this.entityManager.update<ObraEntity>(
+            ObraEntity,
+            { pk: encryptedPk, sk: obra.sk },
+            { estimaciones: obra.estimaciones } as Partial<ObraEntity>,
+          );
+        }
+      }
     }
     return true;
   }

@@ -1124,8 +1124,9 @@ export class ObraService {
     const keys: IGeneric = { pk, sk: id };
     const obra = await this.obraRepository.obraDetail(keys);
 
-    const at = obra.at || 'N/A';
-    const obraNo = obra.obra || 'N/A';
+    const at = (obra.at || '').trim();
+    const obraNo = (obra.obra || '').trim() || 'N/A';
+    const obraIdent = (at && at !== 'N/A') ? `${at}/${obraNo}` : obraNo;
 
     // Auto-generate Oficio number if not set to keep it dynamic and consistent
     let oficio = obra.oficio || '';
@@ -1138,36 +1139,60 @@ export class ObraService {
       }
     }
 
-    const fechaAut = obra.fechaAut || '';
-    const fechaSupervision = obra.fechaSupervision || '';
+    const fechaAut = obra.fechaAut || obra.fechaAsignacion || '';
+    const fechaSupervision = obra.fechaSupervision || obra.fechaFinConstruccion || obra.fechaTerminoCampo || '';
     const materialesSalida = obra.materialesSalida || '';
 
-    // Date formatting functions
-    const formatDate = (dateStr: string) => {
-      if (!dateStr) return 'N/A';
-      const parts = dateStr.split('-');
+    // Date formatting functions (handles -, /, .)
+    const formatDate = (dateStr?: string) => {
+      if (!dateStr || dateStr === 'N/A' || dateStr.trim() === '') return 'N/A';
+      const clean = dateStr.trim();
+      const parts = clean.split(/[-./]/);
       if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        if (parts[0].length === 4) {
+          // YYYY-MM-DD or YYYY.MM.DD
+          return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+        } else if (parts[2].length === 4) {
+          // DD/MM/YYYY
+          return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+        }
       }
-      return dateStr;
+      return clean;
     };
 
-    const getFullSpanishDate = (dateStr: string) => {
-      if (!dateStr) return 'N/A';
+    const getFullSpanishDate = (dateStr?: string) => {
+      if (!dateStr || dateStr === 'N/A' || dateStr.trim() === '') return 'N/A';
       const months = [
         'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
         'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
       ];
-      const parts = dateStr.split('-');
+      const clean = dateStr.trim();
+      const parts = clean.split(/[-./]/);
       if (parts.length === 3) {
-        const day = parseInt(parts[2], 10);
+        let day = 1;
+        let month = 10;
+        let year = '2026';
+        if (parts[0].length === 4) {
+          year = parts[0];
+          month = parseInt(parts[1], 10) || 10;
+          day = parseInt(parts[2], 10) || 1;
+        } else if (parts[2].length === 4) {
+          year = parts[2];
+          month = parseInt(parts[1], 10) || 10;
+          day = parseInt(parts[0], 10) || 1;
+        }
         const dayStr = day < 10 ? `0${day}` : `${day}`;
-        const month = months[parseInt(parts[1], 10) - 1];
-        const year = parts[0];
-        return `${dayStr} DE ${month} DEL ${year}`;
+        const monthStr = months[month - 1] || 'OCTUBRE';
+        return `${dayStr} DE ${monthStr} DEL ${year}`;
       }
-      return dateStr.toUpperCase();
+      return clean.toUpperCase();
     };
+
+    // Execution period dates with proper fallbacks
+    const fechaInicioPeriodo = obra.fechaAsignacion || obra.fechaProgramada || fechaAut || '';
+    const rawFin = obra.fechaFinConstruccion || obra.fechaTerminoCampo || obra.fechaPago || fechaSupervision || fechaAut || '';
+    const formattedFechaInicio = formatDate(fechaInicioPeriodo);
+    const formattedFechaFin = (formatDate(rawFin) !== 'N/A') ? formatDate(rawFin) : (formatDate(fechaAut) !== 'N/A' ? formatDate(fechaAut) : 'N/A');
 
     // Concatenate RD using Población + NombreSolicitante
     const cleanPoblacion = ((obra as any).poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
@@ -1176,72 +1201,85 @@ export class ObraService {
     const nombre = ((obra as any).nombreSolicitante || '').trim();
     const rd = ([poblacion, nombre].filter(Boolean).join(' ') || cleanRd || obra.rd || 'N/A').toUpperCase();
 
-    // Default dynamic placeholders based on the user's specific examples
-    let estimacionNo = '27';
-    let importe = '67,299.34';
-    let deducciones = '951.45';
-    let avanceFisico = '100%';
-    let avanceFinanciero = '1,188,054.65';
+    // Read directly from consolidated obra.estimaciones in the database
+    const estimacionesList = Array.isArray(obra.estimaciones) ? obra.estimaciones : [];
+    let selectedEst: any = null;
+    if (estimacionesList.length > 0) {
+      const sorted = [...estimacionesList].sort((a, b) => (parseInt(b.numeroEstimacion, 10) || 0) - (parseInt(a.numeroEstimacion, 10) || 0));
+      selectedEst = sorted[0];
+    }
 
-    // If there is any saved Estimacion in the DB, we can try to look it up to make it even more dynamic
-    try {
-      const encryptedPk = (this.obraRepository as any).entityManager.connection 
-        ? (this.obraRepository as any).encryptEmail?.(pk) || pk 
-        : pk;
-      
-      if (obra.contrato && obra.at) {
-        // Query the EstimacionEntity dynamically
-        const result = await (this.obraRepository as any).entityManager.find(
-          EstimacionEntity,
-          encryptedPk,
-          {
-            keyCondition: {
-              BEGINS_WITH: `estimacion#${obra.contrato}#${obra.at}#`
-            }
-          }
-        );
-        if (result && result.items && result.items.length > 0) {
-          // sort desc to get the latest one
-          const sorted = result.items.sort((a, b) => parseInt(b.numeroEstimacion) - parseInt(a.numeroEstimacion));
-          const latest = sorted[0];
-          estimacionNo = latest.numeroEstimacion || '27';
-          // Check if there are concepts and calculate estimated amount if contract concepts pricing is available
-        }
+    let estimacionNo = selectedEst?.numeroEstimacion ? String(selectedEst.numeroEstimacion) : ((obra as any).numeroEstimacion || 'S/N');
+    let deducciones = (selectedEst && selectedEst.compSind !== undefined)
+      ? Number(selectedEst.compSind).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : ((obra as any).deducciones || '0.00');
+
+    // Resolve contract and calculate amount directly from database concept prices
+    const contratoNum = obra.contrato || selectedEst?.numeroContrato;
+    let contrato: any = null;
+    if (contratoNum) {
+      try {
+        contrato = await this.contratoRepository.contratoDetail({ pk, sk: contratoNum });
+      } catch {
+        // contract detail fallback
       }
-    } catch {
-      // safe fallback
+    }
+
+    let avanceFisico = '100%';
+    let avanceFinanciero = contrato?.montoAutorizado
+      ? Number(contrato.montoAutorizado).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : '1,188,054.65';
+
+    let importe = '';
+    if (selectedEst && selectedEst.conceptos && contrato && Array.isArray(contrato.conceptos)) {
+      const priceMap = new Map<string, number>();
+      contrato.conceptos.forEach((cp: any) => {
+        priceMap.set((cp.codigo || '').trim().toUpperCase(), cp.costoUnitario || 0);
+      });
+      let total = 0;
+      for (const [k, qty] of Object.entries(selectedEst.conceptos)) {
+        const p = priceMap.get(k.trim().toUpperCase()) || 0;
+        total += (Number(qty) || 0) * p;
+      }
+      if (total > 0) {
+        importe = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+    }
+
+    if (!importe) {
+      importe = (obra as any).importeEstimacion || '0.00';
     }
 
     return [
       {
         id: 1,
         titulo: 'BITACORA ENTREGA DEL SITIO DE LOS TRABAJOS (SUPERVISOR)',
-        encabezado: `${at}/${obraNo} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
-        nota: `Por medio de esta nota se ratifica la entrega del inmueble que se hizo mediante oficio ${oficio} para la Construcción de la Obra: ${at}/${obraNo} quedando bajo su custodia hasta que los trabajos sean concluidos y recibidos de conformidad por CFE Distribución.`,
+        encabezado: `${obraIdent} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
+        nota: `Por medio de esta nota se ratifica la entrega del inmueble que se hizo mediante oficio ${oficio} para la Construcción de la Obra: ${obraIdent} quedando bajo su custodia hasta que los trabajos sean concluidos y recibidos de conformidad por CFE Distribución.`,
       },
       {
         id: 2,
         titulo: 'BITACORA DE AUTORIZACION (RESIDENTE DE OBRA)',
-        encabezado: `${at}/${obraNo} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
-        nota: `Con fecha ${formatDate(fechaAut)}, se asienta que se aprueba por el Residente de Obra y el Ing. Genaro Rafael Gómez Pineda la estimación ${estimacionNo} de conceptos normales, correspondiente al periodo de ejecución de los trabajos ${formatDate(obra.fechaAsignacion)} a ${formatDate(obra.fechaFinConstruccion)} por un importe de $ ${importe} y las siguientes deducciones $ ${deducciones} por gastos de auditoría y cuota sindical a la fecha se tiene un avance físico de ${avanceFisico} y avance financiero del contrato de $ ${avanceFinanciero}.`,
+        encabezado: `${obraIdent} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
+        nota: `Con fecha ${formatDate(fechaAut)}, se asienta que se aprueba por el Residente de Obra y el Ing. Genaro Rafael Gómez Pineda la estimación ${estimacionNo} de conceptos normales, correspondiente al periodo de ejecución de los trabajos ${formattedFechaInicio} a ${formattedFechaFin} por un importe de $ ${importe} y las siguientes deducciones $ ${deducciones} por gastos de auditoría y cuota sindical a la fecha se tiene un avance físico de ${avanceFisico} y avance financiero del contrato de $ ${avanceFinanciero}.`,
       },
       {
         id: 3,
-        titulo: `ENTREGA DE MATERIALES POR SALIDA ECONOMICA CORRESPONDIENTE A LA OBRA: ${at}/${obraNo}`,
-        encabezado: `${at}/${obraNo} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
-        nota: `Por este medio se informa que durante la ejecución de los trabajos para la obra: fue necesaria la instalación de: ${materialesSalida || '1 PZ DE BASTIDOR B4'}, dicho material fue entregado al contratista mediante salida económica.`,
+        titulo: `ENTREGA DE MATERIALES POR SALIDA ECONOMICA CORRESPONDIENTE A LA OBRA: ${obraIdent}`,
+        encabezado: `${obraIdent} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
+        nota: `Por este medio se informa que durante la ejecución de los trabajos para la obra ${obraIdent} fue necesaria la instalación de: ${materialesSalida || '1 PZ DE BASTIDOR B4'}, dicho material fue entregado al contratista mediante salida económica.`,
       },
       {
         id: 4,
         titulo: 'BITACORA DE SUPERVISION (SUPERVISOR)',
-        encabezado: `${at}/${obraNo} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
+        encabezado: `${obraIdent} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
         nota: `Se informa que, de conformidad con la Guía de Supervisión a la fecha ${formatDate(fechaSupervision)}, la recepción de la obra cumple con las normas y especificaciones vigentes.`,
       },
       {
         id: 5,
         titulo: 'SIO',
-        encabezado: '',
-        nota: `CON FECHA DEL ${getFullSpanishDate(fechaAut)} SE AUTORIZA LA ESTIMACION NO ${estimacionNo} DE LA OBRA ${at}/${obraNo} AL CONTRATO ${obra.contrato || '9400120159'}, CORRESPONDIENTE AL PERIODO DE EJECUCIÓN DE LOS TRABAJOS DEL ${formatDate(obra.fechaAsignacion)} a ${formatDate(obra.fechaFinConstruccion)} POR UN IMPORTE DE $${importe.replace(/,/g, '')}`,
+        encabezado: `${obraIdent} ACTIVO: ${obra.activo || 'N/A'}, ORDEN: ${obra.orden || 'N/A'}, RD: ${rd}`,
+        nota: `CON FECHA DEL ${getFullSpanishDate(fechaAut)} SE AUTORIZA LA ESTIMACION NO ${estimacionNo} DE LA OBRA ${obraIdent} AL CONTRATO ${contratoNum || '9400120159'}, CORRESPONDIENTE AL PERIODO DE EJECUCIÓN DE LOS TRABAJOS DEL ${formattedFechaInicio} a ${formattedFechaFin} POR UN IMPORTE DE $${importe.replace(/,/g, '')}`,
       },
     ];
   }

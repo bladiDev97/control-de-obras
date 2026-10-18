@@ -28,6 +28,8 @@ const formatFechaSuspension = (dateStr: string) => {
 export const AvisoSuspensionMtTab: React.FC = () => {
   const {
     fechaElaboracion, setFechaElaboracion,
+    municipio, setMunicipio,
+    estado, setEstado,
     municipioEstado, setMunicipioEstado,
     fechaSuspension, setFechaSuspension,
     horario, setHorario,
@@ -51,7 +53,8 @@ export const AvisoSuspensionMtTab: React.FC = () => {
         const zonasList = await zonasService.getAll();
         if (zonasList && zonasList.length > 0) {
           const z = zonasList[0];
-          setMunicipioEstado(`${z.municipio}, ${z.estado}.`);
+          if (z.municipio) setMunicipio(z.municipio);
+          if (z.estado) setEstado(z.estado);
           setSupervisorZona(z.zona.toLowerCase().includes('zona') ? z.zona : `Zona ${z.zona}`);
           setFooterText(`${z.domicilio}, Colonia ${z.colonia}, ${z.municipio}, ${z.estado}, México<br />C.P. ${z.codigoPostal} Tel. ${z.telefono}, ext. ${z.numeroExtension}`);
         }
@@ -60,7 +63,7 @@ export const AvisoSuspensionMtTab: React.FC = () => {
       }
     };
     loadDefaults();
-  }, [setSupervisorNombre, setSupervisorZona, setMunicipioEstado]);
+  }, [setSupervisorNombre, setSupervisorZona, setMunicipio, setEstado]);
 
   const handlePrint = () => {
     avisoMtService.generarAvisoSuspensionMt(
@@ -154,6 +157,24 @@ export const AvisoSuspensionMtTab: React.FC = () => {
                 value={ubicacion}
                 onChange={(e) => setUbicacion(e.target.value)}
                 helperText="Ej: Av. Lazaro C. Col. IMMS"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Municipio"
+                value={municipio}
+                onChange={(e) => setMunicipio(e.target.value)}
+                helperText="Ej: Pátzcuaro"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Estado"
+                value={estado}
+                onChange={(e) => setEstado(e.target.value)}
+                helperText="Ej: Michoacán"
               />
             </Grid>
             <Grid item xs={12}>

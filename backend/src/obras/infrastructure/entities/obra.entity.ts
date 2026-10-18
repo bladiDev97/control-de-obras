@@ -76,6 +76,9 @@ export class ObraEntity extends GenericEntity implements IObra {
   conceptos?: { [conceptName: string]: number };
 
   @Attribute()
+  estimaciones?: any[];
+
+  @Attribute()
   planoPdf?: string;
 
   @Attribute()
@@ -111,6 +114,15 @@ export class ObraEntity extends GenericEntity implements IObra {
 
   @Attribute()
   fechaSupervision?: string;
+
+  @Attribute()
+  numeroEstimacion?: string;
+
+  @Attribute()
+  importeEstimacion?: string;
+
+  @Attribute()
+  deducciones?: string;
 
   @Attribute()
   oficioConsecutivo?: number;

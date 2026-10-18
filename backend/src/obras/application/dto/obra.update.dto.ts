@@ -122,6 +122,21 @@ export class ObrasUpdateDto {
   fechaSupervision?: string;
 
   @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  numeroEstimacion?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  importeEstimacion?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  deducciones?: string;
+
+  @ApiPropertyOptional()
   @Transform(({ value }) => (value === '' || value === undefined || value === null ? undefined : Number(value)))
   @IsNumber()
   @IsOptional()

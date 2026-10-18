@@ -183,12 +183,7 @@ export class ContratoService {
       savedAsignaciones.push(res);
     }
 
-    // 3. Clear old estimaciones and save new ones
-    const oldEstimaciones = await this.contratoRepository.estimacionList(pk, contrato.numeroContrato);
-    for (const old of oldEstimaciones) {
-      await this.contratoRepository.contratoDelete({ pk, sk: old.sk });
-    }
-
+    // 3. Save estimaciones directly into matching obras
     const savedEstimaciones = [];
     for (const est of estimaciones) {
       est.pk = pk;

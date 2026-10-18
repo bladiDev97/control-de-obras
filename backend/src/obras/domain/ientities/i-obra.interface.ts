@@ -24,6 +24,7 @@ export interface IObra extends IGenericEntity {
   contrato?: string;
   contratista?: string;
   conceptos?: { [conceptName: string]: number };
+  estimaciones?: any[];
   planoPdf?: string;
   poblacion?: string;
   municipio?: string;
@@ -38,6 +39,9 @@ export interface IObra extends IGenericEntity {
   fechaAut?: string;
   materialesSalida?: string;
   fechaSupervision?: string;
+  numeroEstimacion?: string;
+  importeEstimacion?: string;
+  deducciones?: string;
 
   // Oficios and new assignments fields
   oficioConsecutivo?: number;

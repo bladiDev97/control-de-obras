@@ -18,6 +18,7 @@ export interface Obra {
   diasObraAPORTACIONES?: number;
   contrato?: string;
   conceptos?: { [conceptName: string]: number };
+  estimaciones?: any[];
   planoPdf?: string;
   poblacion?: string;
   municipio?: string;
@@ -28,6 +29,9 @@ export interface Obra {
   fechaPago?: string;
   fechaAut?: string;
   fechaSupervision?: string;
+  numeroEstimacion?: string;
+  importeEstimacion?: string;
+  deducciones?: string;
 
   // Reports and contractor metadata fields
   oficioConsecutivo?: number;
