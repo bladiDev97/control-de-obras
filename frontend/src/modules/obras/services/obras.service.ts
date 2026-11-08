@@ -10,9 +10,11 @@ interface ApiResponse<T> {
 export const obrasService = {
   getAll: () => api.get<ApiResponse<Obra[]>>('/obras').then((r) => r.data.data),
   getCapitalizar: () => api.get<ApiResponse<Obra[]>>('/obras/capitalizar').then((r) => r.data.data),
-  getOne: (id: string) => api.get<ApiResponse<Obra>>(`/obras/${id}`).then((r) => r.data.data),
+  getOne: (id: string) => api.get<ApiResponse<Obra>>(`/obras/${encodeURIComponent(id)}`).then((r) => r.data.data),
   terminar: (id: string, fechaTerminoCampo?: string, fechaFinConstruccion?: string) =>
-    api.patch<ApiResponse<any>>(`/obras/${id}/terminar`, { fechaTerminoCampo, fechaFinConstruccion }).then((r) => r.data.data),
+    api.patch<ApiResponse<any>>(`/obras/${encodeURIComponent(id)}/terminar`, { fechaTerminoCampo, fechaFinConstruccion }).then((r) => r.data.data),
+  cancelar: (id: string) =>
+    api.patch<ApiResponse<any>>(`/obras/${encodeURIComponent(id)}/cancelar`).then((r) => r.data.data),
 
   asignar: async (id: string, data: Partial<Obra>, planoPdf?: File) => {
     const finalPayload: Partial<Obra> = { ...data };

@@ -208,11 +208,12 @@ export class ObraController {
   }
 
   /** Retrieve dynamic logbooks (bitacoras) for an Obra */
-  @Get(Routes.Obras.Bitacoras)
+  @Get([Routes.Obras.Bitacoras, ':id/:year/bitacoras'])
   @ApiParam({ name: 'id', required: true, description: 'ID of the Obra' })
-  public async getBitacoras(@Res() response: Response, @Param('id') id: string): Promise<any> {
+  public async getBitacoras(@Res() response: Response, @Param('id') id: string, @Param('year') year?: string): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
-    const result = await this.obraService.getBitacoras(pk, id);
+    const resolvedId = year ? (id + '/' + year) : id;
+    const result = await this.obraService.getBitacoras(pk, resolvedId);
     const jsonResponse = new JsonResponse({
       data: result,
       message: 'Dynamic logbooks generated successfully',
@@ -222,11 +223,12 @@ export class ObraController {
   }
 
   /** Retrieve Oficio de Asignación metadata with consecutive number generation */
-  @Get(Routes.Obras.Oficio)
+  @Get([Routes.Obras.Oficio, ':id/:year/oficio'])
   @ApiParam({ name: 'id', required: true, description: 'ID of the Obra' })
-  public async getOficio(@Res() response: Response, @Param('id') id: string): Promise<any> {
+  public async getOficio(@Res() response: Response, @Param('id') id: string, @Param('year') year?: string): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
-    const result = await this.obraService.getOficioAsignacion(pk, id);
+    const resolvedId = year ? (id + '/' + year) : id;
+    const result = await this.obraService.getOficioAsignacion(pk, resolvedId);
     const jsonResponse = new JsonResponse({
       data: result,
       message: 'Oficio de Asignación metadata generated successfully',
@@ -236,11 +238,12 @@ export class ObraController {
   }
 
   /** Detail of an Obra */
-  @Get(Routes.Obras.GetOne)
+  @Get([Routes.Obras.GetOne, ':id/:year'])
   @ApiParam({ name: 'id', required: true, description: 'ID of the Obra' })
-  public async getOne(@Res() response: Response, @Param('id') id: string): Promise<any> {
+  public async getOne(@Res() response: Response, @Param('id') id: string, @Param('year') year?: string): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
-    const result = await this.obraService.getOne(pk, id);
+    const resolvedId = year ? (id + '/' + year) : id;
+    const result = await this.obraService.getOne(pk, resolvedId);
     const jsonResponse = new JsonResponse({
       data: result,
       message: 'Work details retrieved successfully',
@@ -269,16 +272,18 @@ export class ObraController {
   }
 
   /** Terminar Obra */
-  @Patch(Routes.Obras.Terminar)
+  @Patch([Routes.Obras.Terminar, ':id/:year/terminar'])
   @ApiParam({ name: 'id', required: true, description: 'ID of the Obra' })
   public async terminar(
     @Res({ passthrough: true }) response: Response,
     @Param('id') id: string,
     @Body() dto: ObrasTerminarDto,
+    @Param('year') year?: string,
   ): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
     const fechaFin = dto.fechaFinConstruccion || dto.fechaTermino;
-    const result = await this.obraService.terminar(pk, id, dto.fechaTerminoCampo, fechaFin);
+    const resolvedId = year ? (id + '/' + year) : id;
+    const result = await this.obraService.terminar(pk, resolvedId, dto.fechaTerminoCampo, fechaFin);
     response.status(HttpStatus.OK);
     return new JsonResponse({
       data: result,
@@ -286,16 +291,36 @@ export class ObraController {
     });
   }
 
+  /** Cancelar Obra */
+  @Patch([Routes.Obras.Cancelar, ':id/:year/cancelar'])
+  @ApiParam({ name: 'id', required: true, description: 'ID of the Obra' })
+  public async cancelar(
+    @Res({ passthrough: true }) response: Response,
+    @Param('id') id: string,
+    @Param('year') year?: string,
+  ): Promise<any> {
+    const pk = 'bladi.PigeonSave@gmail.com';
+    const resolvedId = year ? (id + '/' + year) : id;
+    const result = await this.obraService.cancelar(pk, resolvedId);
+    response.status(HttpStatus.OK);
+    return new JsonResponse({
+      data: result,
+      message: 'Obra cancelada exitosamente',
+    });
+  }
+
   /** Asignar Obra */
-  @Patch(Routes.Obras.Asignar)
+  @Patch([Routes.Obras.Asignar, ':id/:year/asignar'])
   @ApiParam({ name: 'id', required: true, description: 'ID of the Obra' })
   public async asignar(
     @Res() response: Response,
     @Param('id') id: string,
     @Body() body: ObrasAsignarDto,
+    @Param('year') year?: string,
   ): Promise<any> {
     const pk = 'bladi.PigeonSave@gmail.com';
-    const result = await this.obraService.asignar(pk, id, body);
+    const resolvedId = year ? (id + '/' + year) : id;
+    const result = await this.obraService.asignar(pk, resolvedId, body);
     const jsonResponse = new JsonResponse({
       data: result,
       message: 'Work assigned successfully',

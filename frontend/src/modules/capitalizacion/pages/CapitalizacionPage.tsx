@@ -128,7 +128,15 @@ export default function CapitalizacionPage() {
       {loading ? (
         <Typography>Cargando obras...</Typography>
       ) : (
-        <ReusableTable columns={columns} rows={obras} defaultOrderBy="diasSinCapitalizar" defaultOrderDir="desc" />
+        <ReusableTable
+          columns={columns}
+          rows={obras}
+          defaultOrderBy="diasSinCapitalizar"
+          defaultOrderDir="desc"
+          showTipoObraFilter={false}
+          showAnioFilter={false}
+          showAdvancedFilters={false}
+        />
       )}
 
       <ReusableModal

@@ -5,6 +5,7 @@ export interface IObra extends IGenericEntity {
   id?: string;
   solicitudPo: string;
   anio: string;
+  anioSolicitud?: string;
   at: string;
   obra: string;
   tipoObra: string;
@@ -51,5 +52,6 @@ export interface IObra extends IGenericEntity {
   coordenadaX?: string;
   coordenadaY?: string;
   
-  estatus: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA';
+  fechaCancelacion?: string;
+  estatus: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' | 'CANCELADA';
 }

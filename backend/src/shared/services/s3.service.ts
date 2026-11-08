@@ -7,11 +7,12 @@ export class S3Service {
   private readonly logger = new Logger(S3Service.name);
   private s3: AWS.S3;
   private bucketName: string;
+  private readonly fallbackBucketName = 'control-de-obras-frontend-808433583479';
   private region: string;
 
   constructor() {
     this.region = process.env.DYNAMO_REGION || process.env.AWS_REGION || 'us-east-1';
-    this.bucketName = process.env.S3_UPLOADS_BUCKET || 'control-de-obras-frontend-808433583479';
+    this.bucketName = process.env.S3_UPLOADS_BUCKET || 'control-de-obras-uploads-808433583479';
     this.s3 = new AWS.S3({ region: this.region });
   }
 
@@ -81,25 +82,55 @@ export class S3Service {
 
   public async getFileBuffer(fileUrlOrKey: string): Promise<Buffer> {
     let key = fileUrlOrKey;
+    let targetBucket = this.bucketName;
     if (fileUrlOrKey.includes('.amazonaws.com/')) {
-      key = fileUrlOrKey.split('.amazonaws.com/')[1];
-    }
-    this.logger.log(`Fetching S3 object buffer for key: ${key}`);
-    const res = await this.s3.getObject({ Bucket: this.bucketName, Key: key }).promise();
-    return res.Body as Buffer;
-  }
-
-  public async getPresignedViewUrl(fileUrlOrKey: string): Promise<string> {
-    let key = fileUrlOrKey;
-    if (fileUrlOrKey.includes('.amazonaws.com/')) {
+      const match = fileUrlOrKey.match(/https?:\/\/([^.]+)\.s3/);
+      if (match && match[1]) {
+        targetBucket = match[1];
+      }
       key = fileUrlOrKey.split('.amazonaws.com/')[1];
     }
     key = key.replace(/^\//, '');
 
+    this.logger.log(`Fetching S3 object buffer for bucket: ${targetBucket}, key: ${key}`);
+    try {
+      const res = await this.s3.getObject({ Bucket: targetBucket, Key: key }).promise();
+      return res.Body as Buffer;
+    } catch (err) {
+      const fallback = targetBucket === this.bucketName ? this.fallbackBucketName : this.bucketName;
+      this.logger.log(`Primary S3 getObject failed, trying fallback bucket: ${fallback}, key: ${key}`);
+      const res = await this.s3.getObject({ Bucket: fallback, Key: key }).promise();
+      return res.Body as Buffer;
+    }
+  }
+
+  public async getPresignedViewUrl(fileUrlOrKey: string): Promise<string> {
+    let key = fileUrlOrKey;
+    let targetBucket = this.bucketName;
+    if (fileUrlOrKey.includes('.amazonaws.com/')) {
+      const match = fileUrlOrKey.match(/https?:\/\/([^.]+)\.s3/);
+      if (match && match[1]) {
+        targetBucket = match[1];
+      }
+      key = fileUrlOrKey.split('.amazonaws.com/')[1];
+    }
+    key = key.replace(/^\//, '');
+
+    // Check which bucket actually contains the object
+    try {
+      await this.s3.headObject({ Bucket: targetBucket, Key: key }).promise();
+    } catch {
+      const fallback = targetBucket === this.bucketName ? this.fallbackBucketName : this.bucketName;
+      try {
+        await this.s3.headObject({ Bucket: fallback, Key: key }).promise();
+        targetBucket = fallback;
+      } catch {}
+    }
+
     const downloadFilename = basename(key) || 'plano.pdf';
 
     const params = {
-      Bucket: this.bucketName,
+      Bucket: targetBucket,
       Key: key,
       Expires: 3600, // 1 hour
       ResponseContentType: 'application/pdf',
@@ -107,22 +138,33 @@ export class S3Service {
     };
 
     const url = await this.s3.getSignedUrlPromise('getObject', params);
-    this.logger.log(`Generated presigned view URL for key: ${key}`);
+    this.logger.log(`Generated presigned view URL for bucket: ${targetBucket}, key: ${key}`);
     return url;
   }
 
   public async objectExists(fileUrlOrKey: string): Promise<boolean> {
     let key = fileUrlOrKey;
+    let targetBucket = this.bucketName;
     if (fileUrlOrKey.includes('.amazonaws.com/')) {
+      const match = fileUrlOrKey.match(/https?:\/\/([^.]+)\.s3/);
+      if (match && match[1]) {
+        targetBucket = match[1];
+      }
       key = fileUrlOrKey.split('.amazonaws.com/')[1];
     }
     key = key.replace(/^\//, '');
 
     try {
-      await this.s3.headObject({ Bucket: this.bucketName, Key: key }).promise();
+      await this.s3.headObject({ Bucket: targetBucket, Key: key }).promise();
       return true;
-    } catch (e: any) {
-      return false;
+    } catch {
+      const fallback = targetBucket === this.bucketName ? this.fallbackBucketName : this.bucketName;
+      try {
+        await this.s3.headObject({ Bucket: fallback, Key: key }).promise();
+        return true;
+      } catch {
+        return false;
+      }
     }
   }
 }

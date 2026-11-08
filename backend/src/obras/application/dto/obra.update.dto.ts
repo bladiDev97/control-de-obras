@@ -16,6 +16,11 @@ export class ObrasUpdateDto {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  anioSolicitud?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
   at?: string;
 
   @ApiPropertyOptional()
@@ -187,9 +192,14 @@ export class ObrasUpdateDto {
   @IsOptional()
   fechaPago?: string;
 
-  @ApiPropertyOptional({ enum: ['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA'] })
-  @Transform(({ value }) => (value === '' || value === undefined || value === null ? undefined : value))
-  @IsEnum(['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA'])
+  @ApiPropertyOptional()
+  @IsString()
   @IsOptional()
-  estatus?: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA';
+  fechaCancelacion?: string;
+
+  @ApiPropertyOptional({ enum: ['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA', 'CANCELADA'] })
+  @Transform(({ value }) => (value === '' || value === undefined || value === null ? undefined : value))
+  @IsEnum(['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA', 'CANCELADA'])
+  @IsOptional()
+  estatus?: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' | 'CANCELADA';
 }

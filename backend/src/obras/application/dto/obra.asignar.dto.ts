@@ -139,7 +139,7 @@ export class ObrasAsignarDto {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
-  estatus?: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA';
+  estatus?: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' | 'CANCELADA';
 
   @ApiPropertyOptional()
   @IsString()
@@ -150,6 +150,11 @@ export class ObrasAsignarDto {
   @IsString()
   @IsOptional()
   anio?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  anioSolicitud?: string;
 
   @ApiPropertyOptional()
   @IsString()

@@ -12,6 +12,8 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import BusinessIcon from '@mui/icons-material/Business';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PersonIcon from '@mui/icons-material/Person';
+import CancelIcon from '@mui/icons-material/Cancel';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useObras } from '../hooks/useObras';
 import { obrasService, areasService } from '../services/obras.service';
 import { contratosService } from '../../contratos/services/contratos.service';
@@ -46,6 +48,7 @@ export default function ObrasPage() {
   const { obras, loading, refetch } = useObras();
   const [selected, setSelected] = useState<Obra | null>(null);
   const [previewObra, setPreviewObra] = useState<Obra | null>(null);
+  const [cancelConfirmObra, setCancelConfirmObra] = useState<Obra | null>(null);
   const [terminarForm, setTerminarForm] = useState<{
     fechaTerminoCampo: string;
     fechaFinConstruccion: string;
@@ -98,6 +101,7 @@ export default function ObrasPage() {
     at: '',
     obra: '',
     anio: '',
+    anioSolicitud: '',
     tipoObra: '',
     activo: '',
     orden: '',
@@ -196,36 +200,41 @@ export default function ObrasPage() {
     {
       key: 'solicitudPo',
       label: 'Solicitud/PO',
-      width: '10%',
+      width: '12.5%',
+      minWidth: '138px',
+      align: 'center',
       render: (row) => (
         <span
           onClick={() => setPreviewObra(row)}
           title={row.solicitudPo}
           style={{
-            color: '#1d4ed8',
+            color: row.estatus === 'CANCELADA' ? '#ffffff' : '#1d4ed8',
             textDecoration: 'underline',
             fontWeight: '700',
             cursor: 'pointer',
             fontSize: '0.74rem',
             whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: 'block'
+            display: 'inline-block',
+            textAlign: 'center',
+            width: '100%',
           }}
         >
           {row.solicitudPo}
         </span>
-      )
+      ),
     },
-    { key: 'at', label: 'AT', width: '5%' },
-    { key: 'obra', label: 'Obra', width: '5%' },
-    { key: 'anio', label: 'Año', width: '4%' },
+    { key: 'at', label: 'AT', width: '4%', minWidth: '46px', align: 'center' },
+    { key: 'obra', label: 'Obra', width: '4%', minWidth: '46px', align: 'center' },
+    { key: 'anio', label: 'Año', width: '3.5%', minWidth: '42px', align: 'center' },
     {
       key: 'tipoObra',
       label: 'Tipo Obra',
-      width: '9%',
+      width: '8.5%',
+      minWidth: '88px',
+      align: 'center',
       render: (row: any) => {
-        const tipo = (row.tipoObra || '').toUpperCase();
+        const rawTipo = String(row.tipoObra || '').trim();
+        const tipo = rawTipo.replace(/\.+$/, '').toUpperCase();
         if (tipo === 'SSEEBRA' || tipo === 'APORTACIONES') {
           const dias = row.diasObraAPORTACIONES === 28 ? 28 : 9;
           const is9 = dias === 9;
@@ -234,17 +243,17 @@ export default function ObrasPage() {
           const border = is9 ? '1px solid #fca5a5' : '1px solid #93c5fd';
 
           return (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-              <span>{tipo}</span>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px', overflow: 'visible' }}>
+              <span style={{ fontSize: '0.72rem' }}>{tipo}</span>
               <span
                 style={{
                   backgroundColor: bg,
                   color: fg,
                   border: border,
-                  padding: '1px 6px',
+                  padding: '1px 5px',
                   borderRadius: '10px',
                   fontWeight: '800',
-                  fontSize: '0.66rem',
+                  fontSize: '0.64rem',
                   lineHeight: '1.2',
                 }}
               >
@@ -253,15 +262,17 @@ export default function ObrasPage() {
             </div>
           );
         }
-        return tipo || '-';
+        return tipo ? tipo.replace(/\.+$/, '') : '-';
       },
     },
-    { key: 'activo', label: 'Activo', width: '6%' },
-    { key: 'orden', label: 'Orden', width: '8%' },
+    { key: 'activo', label: 'Activo', width: '5.5%', minWidth: '58px', align: 'center' },
+    { key: 'orden', label: 'Orden', width: '7%', minWidth: '70px', align: 'center' },
     {
       key: 'rd',
       label: 'RD',
-      width: '26%',
+      width: '20%',
+      minWidth: '160px',
+      align: 'center',
       render: (row) => {
         const cleanPoblacion = ((row as any).poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
         const cleanRd = (row.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
@@ -277,18 +288,22 @@ export default function ObrasPage() {
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               fontSize: '0.72rem',
-              lineHeight: '1.2'
+              lineHeight: '1.2',
+              textAlign: 'left',
+              paddingLeft: '4px',
             }}
           >
             {text || '-'}
           </div>
         );
-      }
+      },
     },
     {
       key: 'estatus',
       label: 'Estatus',
-      width: '9%',
+      width: '8%',
+      minWidth: '85px',
+      align: 'center',
       render: (row) => {
         let bg = '#fef3c7'; // soft yellow for PENDIENTE (ASIGNAR)
         let fg = '#d97706';
@@ -310,6 +325,11 @@ export default function ObrasPage() {
           fg = '#ffffff';
           border = '1px solid #007650';
           displayLabel = 'CAPITALIZADA';
+        } else if (row.estatus === 'CANCELADA') {
+          bg = '#ffffff'; // Contraste máximo sobre el renglón rojo platino
+          fg = '#b43c3c';
+          border = '2px solid #ffffff';
+          displayLabel = 'CANCELADA';
         }
 
         const handleEstatusClick = (e: React.MouseEvent) => {
@@ -354,10 +374,12 @@ export default function ObrasPage() {
     {
       key: 'diasParaVencerse' as any,
       label: 'POR VENCER',
-      width: '10%',
+      width: '8%',
+      minWidth: '85px',
+      align: 'center',
       render: (row: any) => {
-        // Para obras ya concluidas (capitalizadas o terminadas en campo), poner guión
-        if (row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA') {
+        // Para obras ya concluidas (capitalizadas o terminadas en campo) o canceladas, poner guión
+        if (row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA' || row.estatus === 'CANCELADA') {
           return <span style={{ color: '#9ca3af', fontWeight: 600 }}>-</span>;
         }
 
@@ -398,13 +420,18 @@ export default function ObrasPage() {
     {
       key: 'dias' as any,
       label: 'DÍAS',
-      width: '7%',
+      width: '4.5%',
+      minWidth: '50px',
+      align: 'center',
       render: (row: any) => typeof row.dias === 'number' ? row.dias : 0,
     },
     {
       key: 'coordenadas' as any,
       label: 'GEOS',
-      width: '9%',
+      width: '8%',
+      minWidth: '88px',
+      align: 'center',
+      sortable: false,
       render: (row) => {
         const x = (row as any).coordenadaX || '';
         const y = (row as any).coordenadaY || '';
@@ -434,15 +461,17 @@ export default function ObrasPage() {
         return (
           <span
             onClick={handleOpenMap}
-            title={`${y}, ${x}`}
+            title={`Abrir Google Earth: ${y}, ${x}`}
             style={{
-              fontSize: '0.68rem',
+              fontSize: '0.72rem',
+              fontWeight: 600,
               whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: 'block',
+              display: 'inline-block',
+              textAlign: 'center',
+              width: '100%',
               cursor: 'pointer',
-              color: '#1d4ed8',
+              color: row.estatus === 'CANCELADA' ? '#ffffff' : '#1d4ed8',
+              textDecoration: 'underline',
             }}
           >
             {displayCoords}
@@ -453,7 +482,10 @@ export default function ObrasPage() {
     {
       key: 'planoPdf' as any,
       label: 'PLANO',
-      width: '6%',
+      width: '6.5%',
+      minWidth: '65px',
+      align: 'center',
+      sortable: false,
       render: (row) => {
         if (!row.planoPdf) return <span style={{ color: '#9ca3af' }}>-</span>;
         return (
@@ -465,7 +497,7 @@ export default function ObrasPage() {
             style={{
               color: '#059669',
               fontWeight: 700,
-              fontSize: '0.7rem',
+              fontSize: '0.68rem',
               textDecoration: 'none',
               backgroundColor: '#ecfdf5',
               border: '1px solid #a7f3d0',
@@ -473,6 +505,7 @@ export default function ObrasPage() {
               borderRadius: '6px',
               display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '3px',
               whiteSpace: 'nowrap'
             }}
@@ -498,6 +531,53 @@ export default function ObrasPage() {
       refetch();
     } catch (err) {
       console.error('Error terminando obra:', err);
+    }
+  };
+
+  const handleConfirmCancelar = async () => {
+    if (!cancelConfirmObra) return;
+    const obra = cancelConfirmObra;
+    setCancelConfirmObra(null);
+    setPreviewObra(null);
+
+    setProcessingTitle('Cancelando Obra');
+    setProcessingSubtitle(`Cancelando ${obra.solicitudPo || obra.obra || 'la obra'}... Por favor espere.`);
+    setIsProcessing(true);
+
+    try {
+      await obrasService.cancelar(obra.id);
+      await refetch();
+    } catch (err: any) {
+      console.error('Error cancelando obra:', err);
+      const msg = err.response?.data?.message || err.message || 'Error inesperado al cancelar la obra.';
+      alert(`No se pudo cancelar la obra:\n${Array.isArray(msg) ? msg.join(', ') : msg}`);
+      await refetch();
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReactivar = async (obra: Obra) => {
+    if (!window.confirm(`¿Desea reactivar la obra ${obra.solicitudPo || obra.obra}? Su estatus volverá a calcularse.`)) {
+      return;
+    }
+    setPreviewObra(null);
+    setProcessingTitle('Reactivando Obra');
+    setProcessingSubtitle(`Reactivando ${obra.solicitudPo || obra.obra || 'la obra'}... Por favor espere.`);
+    setIsProcessing(true);
+
+    try {
+      await obrasService.update({
+        solicitudPo: obra.solicitudPo,
+        estatus: obra.at ? 'ASIGNADA' : 'PENDIENTE',
+      } as any);
+      await refetch();
+    } catch (err: any) {
+      console.error('Error reactivando obra:', err);
+      alert('No se pudo reactivar la obra.');
+      await refetch();
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -597,6 +677,9 @@ export default function ObrasPage() {
       cleanPayload.solicitudPo = editForm.solicitudPo || currentEditing.solicitudPo;
       if (!cleanPayload.obra && currentEditing.obra) cleanPayload.obra = currentEditing.obra;
       if (!cleanPayload.at && currentEditing.at) cleanPayload.at = currentEditing.at;
+      if (!currentPdf && (currentEditing as any).planoPdf) {
+        cleanPayload.planoPdf = (currentEditing as any).planoPdf;
+      }
 
       await obrasService.update(cleanPayload as any, currentPdf || undefined);
       await refetch();
@@ -651,8 +734,8 @@ export default function ObrasPage() {
     return new Date(dateStr);
   };
 
-  // 1. Días Transcurridos desde la fecha de inicio / pago hasta HOY
-  const calculateDias = (row: Obra): number | string => {
+  // 1. Días Transcurridos desde la fecha de inicio / pago hasta fechaCancelacion (si cancelada) o HOY
+  const calculateDias = (row: Obra): number => {
     const tipo = (row.tipoObra || '').toUpperCase();
     const isSseebra = tipo === 'SSEEBRA' || tipo === 'APORTACIONES';
 
@@ -665,23 +748,37 @@ export default function ObrasPage() {
       rawDate = (row as any).fechaAsignacion || (row as any).fechaProgramada || (row as any).fechaAut || row.fechaPago || '';
     }
 
-    if (!rawDate) return '';
+    if (!rawDate) return 0;
     try {
       const startDate = parseLocalDate(rawDate);
-      if (isNaN(startDate.getTime())) return '';
+      if (isNaN(startDate.getTime())) return 0;
       startDate.setHours(0, 0, 0, 0);
-      const diffTime = today.getTime() - startDate.getTime();
+
+      // Si la obra está cancelada, los días dejan de correr y se congelan en la fecha de cancelación
+      let limitDate = today;
+      if (row.estatus === 'CANCELADA') {
+        const rawCancel = (row as any).fechaCancelacion || (row as any).updatedAt;
+        if (rawCancel) {
+          const cancelDate = parseLocalDate(rawCancel);
+          if (!isNaN(cancelDate.getTime())) {
+            cancelDate.setHours(0, 0, 0, 0);
+            limitDate = cancelDate;
+          }
+        }
+      }
+
+      const diffTime = limitDate.getTime() - startDate.getTime();
       const elapsedDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       return elapsedDays >= 0 ? elapsedDays : 0;
     } catch {
-      return '';
+      return 0;
     }
   };
 
   // 2. Días por vencer (Días restantes antes del límite)
   const calculateDiasParaVencerse = (row: Obra): number => {
-    // Si la obra ya está concluida en campo o capitalizada, no aplica plazo de vencimiento
-    if (row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA') {
+    // Si la obra ya está concluida en campo o capitalizada o cancelada, no aplica plazo de vencimiento
+    if (row.estatus === 'CAPITALIZADA' || row.estatus === 'TERMINADA' || row.estatus === 'CANCELADA') {
       return 0;
     }
 
@@ -780,12 +877,10 @@ export default function ObrasPage() {
     };
   });
 
-
-
   return (
     <div>
       <h1 className="page-title">
-        <span>⚡ Panel de Control de Obras</span>
+        <span>⚡ Control de Obras</span>
       </h1>
 
       {loading ? (
@@ -798,6 +893,7 @@ export default function ObrasPage() {
           showTipoObraFilter={false}
           showAnioFilter={false}
           showColorFilter={false}
+          showAdvancedFilters={true}
           autoScrollToBottom={true}
         />
       )}
@@ -1208,6 +1304,8 @@ export default function ObrasPage() {
                     bg = '#fffbeb'; fg = '#b45309'; border = '#fde68a';
                   } else if (est === 'PENDIENTE') {
                     bg = '#f8fafc'; fg = '#64748b'; border = '#e2e8f0';
+                  } else if (est === 'CANCELADA') {
+                    bg = '#fee2e2'; fg = '#dc2626'; border = '#fca5a5';
                   }
                   return (
                     <span
@@ -1271,6 +1369,23 @@ export default function ObrasPage() {
                   </div>
                   {/* Badge de Días */}
                   {(() => {
+                    if (previewObra.estatus === 'CANCELADA') {
+                      return (
+                        <span
+                          style={{
+                            backgroundColor: '#fee2e2',
+                            color: '#dc2626',
+                            border: '1px solid #fca5a5',
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            fontWeight: 800,
+                            fontSize: '0.75rem',
+                          }}
+                        >
+                          Cancelada (Días congelados)
+                        </span>
+                      );
+                    }
                     const dias = (previewObra as any).diasObraAPORTACIONES;
                     if (dias) {
                       return (
@@ -1459,8 +1574,13 @@ export default function ObrasPage() {
                     </div>
 
                     <div>
-                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Año</span>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Año Obra</span>
                       <strong style={{ color: '#0f172a' }}>{previewObra.anio || '-'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Año Solicitud</span>
+                      <strong style={{ color: '#0f172a' }}>{previewObra.anioSolicitud || '-'}</strong>
                     </div>
 
                     <div>
@@ -1752,6 +1872,7 @@ export default function ObrasPage() {
                         at: row.at || '',
                         obra: row.obra || '',
                         anio: row.anio || '',
+                        anioSolicitud: (row as any).anioSolicitud || '',
                         tipoObra: row.tipoObra || '',
                         activo: row.activo || '',
                         orden: row.orden || '',
@@ -1817,6 +1938,43 @@ export default function ObrasPage() {
                 >
                   Reasignar Obra
                 </Button>
+
+                {previewObra.estatus !== 'CANCELADA' ? (
+                  <Button
+                    onClick={() => {
+                      setCancelConfirmObra(previewObra);
+                    }}
+                    variant="contained"
+                    style={{
+                      backgroundColor: '#dc2626',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      borderRadius: '10px',
+                      padding: '8px 18px',
+                      textTransform: 'none',
+                      boxShadow: '0 2px 4px rgba(220, 38, 38, 0.25)',
+                    }}
+                    startIcon={<CancelIcon />}
+                  >
+                    Cancelar Obra
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleReactivar(previewObra)}
+                    variant="outlined"
+                    style={{
+                      color: '#059669',
+                      borderColor: '#059669',
+                      fontWeight: 700,
+                      borderRadius: '10px',
+                      padding: '8px 18px',
+                      textTransform: 'none',
+                    }}
+                    startIcon={<RestartAltIcon />}
+                  >
+                    Reactivar Obra
+                  </Button>
+                )}
               </div>
 
               <Button
@@ -1836,6 +1994,79 @@ export default function ObrasPage() {
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* Dialog de Confirmación para Cancelar Obra */}
+      <Dialog
+        open={!!cancelConfirmObra}
+        onClose={() => setCancelConfirmObra(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          style: {
+            borderRadius: '16px',
+            padding: '8px',
+          },
+        }}
+      >
+        <DialogTitle style={{ fontWeight: 800, color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <CancelIcon style={{ color: '#dc2626' }} />
+          Confirmar Cancelación
+        </DialogTitle>
+        <DialogContent>
+          <Typography style={{ fontSize: '0.92rem', color: '#334155', lineHeight: 1.5 }}>
+            ¿Está seguro de que desea cancelar la obra{' '}
+            <strong style={{ color: '#0f172a' }}>{cancelConfirmObra?.solicitudPo}</strong>?
+          </Typography>
+          <div
+            style={{
+              marginTop: '12px',
+              padding: '12px',
+              backgroundColor: '#fee2e2',
+              borderRadius: '8px',
+              border: '1px solid #fca5a5',
+              fontSize: '0.8rem',
+              color: '#991b1b',
+            }}
+          >
+            ⚠️ <strong>Al cancelar esta obra:</strong>
+            <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+              <li>El estatus cambiará a <strong>CANCELADA</strong>.</li>
+              <li>Los días transcurridos y plazos ya no correrán.</li>
+              <li>Se marcará en color rojo de cancelación en el control de obras.</li>
+            </ul>
+          </div>
+        </DialogContent>
+        <DialogActions style={{ padding: '12px 20px', gap: '8px' }}>
+          <Button
+            onClick={() => setCancelConfirmObra(null)}
+            variant="outlined"
+            style={{
+              color: '#64748b',
+              borderColor: '#cbd5e1',
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Volver
+          </Button>
+          <Button
+            onClick={handleConfirmCancelar}
+            variant="contained"
+            style={{
+              backgroundColor: '#dc2626',
+              color: '#ffffff',
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 700,
+              boxShadow: '0 2px 4px rgba(220, 38, 38, 0.25)',
+            }}
+            startIcon={<CancelIcon />}
+          >
+            Sí, Cancelar Obra
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Modal para Editar Obra */}
@@ -1892,10 +2123,17 @@ export default function ObrasPage() {
               fullWidth
             />
             <TextField
-              label="Año"
+              label="Año Obra"
               size="small"
               value={editForm.anio}
               onChange={(e) => setEditForm({ ...editForm, anio: e.target.value })}
+              fullWidth
+            />
+            <TextField
+              label="Año Solicitud"
+              size="small"
+              value={editForm.anioSolicitud}
+              onChange={(e) => setEditForm({ ...editForm, anioSolicitud: e.target.value })}
               fullWidth
             />
           </div>
@@ -2084,6 +2322,7 @@ export default function ObrasPage() {
               <MenuItem value="ASIGNADA">ASIGNADA</MenuItem>
               <MenuItem value="TERMINADA">TERMINADA</MenuItem>
               <MenuItem value="CAPITALIZADA">CAPITALIZADA</MenuItem>
+              <MenuItem value="CANCELADA">CANCELADA</MenuItem>
             </TextField>
 
             <div style={{ width: '100%', display: 'flex', alignItems: 'center' }}>

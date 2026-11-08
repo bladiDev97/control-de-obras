@@ -15,10 +15,16 @@ import {
   Select,
   MenuItem,
   Button,
+  Checkbox,
+  ListItemText,
+  Collapse,
+  Chip,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 
 export interface Column<T> {
   key: keyof T;
@@ -26,6 +32,8 @@ export interface Column<T> {
   render?: (row: T) => React.ReactNode;
   align?: 'inherit' | 'left' | 'center' | 'right' | 'justify';
   width?: string;
+  minWidth?: string;
+  sortable?: boolean;
 }
 
 export interface ReusableTableProps<T> {
@@ -39,6 +47,7 @@ export interface ReusableTableProps<T> {
   showTipoObraFilter?: boolean;
   showAnioFilter?: boolean;
   showColorFilter?: boolean;
+  showAdvancedFilters?: boolean;
   autoScrollToBottom?: boolean;
 }
 
@@ -53,6 +62,7 @@ export default function ReusableTable<T extends Record<string, any>>({
   showTipoObraFilter,
   showAnioFilter,
   showColorFilter,
+  showAdvancedFilters: allowAdvancedFilters = true,
   autoScrollToBottom = false,
 }: ReusableTableProps<T>) {
   const [search, setSearch] = useState('');
@@ -71,9 +81,17 @@ export default function ReusableTable<T extends Record<string, any>>({
   const hasTipoObraColumn = (showTipoObraFilter ?? true) && rows.length > 0 && 'tipoObra' in rows[0];
   const hasAnioColumn = (showAnioFilter ?? true) && rows.length > 0 && 'anio' in rows[0];
 
-  const [statusFilter, setStatusFilter] = useState<string>('TODOS');
+  const [statusFilter, setStatusFilter] = useState<string[]>(['TODOS']);
   const [tipoObraFilter, setTipoObraFilter] = useState<string>('TODOS');
   const [anioFilter, setAnioFilter] = useState<string>('TODOS');
+
+  // Advanced Filters State
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
+  const [minDias, setMinDias] = useState<string>('');
+  const [maxDias, setMaxDias] = useState<string>('');
+  const [fechaDesde, setFechaDesde] = useState<string>('');
+  const [fechaHasta, setFechaHasta] = useState<string>('');
+  const [contratistaFilter, setContratistaFilter] = useState<string>('TODOS');
 
   // Auto-scroll table container to bottom on load if autoScrollToBottom is true
   useEffect(() => {
@@ -90,7 +108,7 @@ export default function ReusableTable<T extends Record<string, any>>({
         clearTimeout(timer2);
       };
     }
-  }, [rows.length, statusFilter, autoScrollToBottom]);
+  }, [rows.length, statusFilter.join(','), autoScrollToBottom]);
 
   // Helper to identify Días columns
   const isDiasColumn = (col: Column<T>) => {
@@ -130,7 +148,8 @@ export default function ReusableTable<T extends Record<string, any>>({
     if (
       typeof row.diasParaVencerse === 'number' &&
       row.estatus !== 'CAPITALIZADA' &&
-      row.estatus !== 'TERMINADA'
+      row.estatus !== 'TERMINADA' &&
+      row.estatus !== 'CANCELADA'
     ) {
       const days = row.diasParaVencerse;
       if (days <= 3) {
@@ -162,7 +181,9 @@ export default function ReusableTable<T extends Record<string, any>>({
 
     // 3. Status fallback if no days colors matched
     if (colors.length === 0) {
-      if (row.estatus === 'CAPITALIZADA') {
+      if (row.estatus === 'CANCELADA') {
+        colors.push('ROJO');
+      } else if (row.estatus === 'CAPITALIZADA') {
         if (!hasFechaFinConstruccion) {
           colors.push('ROJO');
         } else {
@@ -178,34 +199,80 @@ export default function ReusableTable<T extends Record<string, any>>({
 
   // Compute unique values for dropdowns
   const tipoObraOptions = React.useMemo(() => {
-    if (!hasTipoObraColumn) return [];
     return Array.from(
       new Set(rows.map((r) => String(r.tipoObra || '').toUpperCase().trim()).filter(Boolean))
     ).sort();
-  }, [rows, hasTipoObraColumn]);
+  }, [rows]);
 
   const anioOptions = React.useMemo(() => {
-    if (!hasAnioColumn) return [];
     return Array.from(
       new Set(rows.map((r) => String(r.anio || '').trim()).filter(Boolean))
     ).sort((a, b) => b.localeCompare(a));
-  }, [rows, hasAnioColumn]);
+  }, [rows]);
+
+  const contratistaOptions = React.useMemo(() => {
+    return Array.from(
+      new Set(rows.map((r) => String(r.contratista || '').trim()).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  // Compute active advanced filters count
+  const activeFiltersCount = React.useMemo(() => {
+    let count = 0;
+    if (!statusFilter.includes('TODOS') && statusFilter.length > 0) count++;
+    if (tipoObraFilter !== 'TODOS') count++;
+    if (anioFilter !== 'TODOS') count++;
+    if (contratistaFilter !== 'TODOS') count++;
+    if (minDias !== '' || maxDias !== '') count++;
+    if (fechaDesde !== '' || fechaHasta !== '') count++;
+    return count;
+  }, [statusFilter, tipoObraFilter, anioFilter, contratistaFilter, minDias, maxDias, fechaDesde, fechaHasta]);
+
+  const handleResetFilters = () => {
+    setStatusFilter(['TODOS']);
+    setTipoObraFilter('TODOS');
+    setAnioFilter('TODOS');
+    setContratistaFilter('TODOS');
+    setMinDias('');
+    setMaxDias('');
+    setFechaDesde('');
+    setFechaHasta('');
+  };
 
   // Apply filters
   const filtered = rows.filter((row) => {
-    // 1. Status Filter
-    if (hasStatusColumn && statusFilter !== 'TODOS') {
-      if (row.estatus !== statusFilter) return false;
+    // 1. Status Filter (Permite seleccionar 2 o más variables a la vez)
+    if (hasStatusColumn && !statusFilter.includes('TODOS') && statusFilter.length > 0) {
+      if (!statusFilter.includes(row.estatus)) return false;
     }
     // 2. Tipo Obra Filter
-    if (hasTipoObraColumn && tipoObraFilter !== 'TODOS') {
-      if (String(row.tipoObra || '').toUpperCase().trim() !== tipoObraFilter) return false;
+    if (tipoObraFilter !== 'TODOS') {
+      if (String(row.tipoObra || '').toUpperCase().trim() !== tipoObraFilter.toUpperCase()) return false;
     }
     // 3. Anio Filter
-    if (hasAnioColumn && anioFilter !== 'TODOS') {
-      if (String(row.anio || '').trim() !== anioFilter) return false;
+    if (anioFilter !== 'TODOS') {
+      if (String(row.anio || '').trim() !== String(anioFilter).trim()) return false;
     }
-    // 4. Color Filter
+    // 4. Contratista Filter
+    if (contratistaFilter !== 'TODOS') {
+      if (String(row.contratista || '').trim().toUpperCase() !== contratistaFilter.toUpperCase()) return false;
+    }
+    // 5. Rango de Días Transcurridos
+    const rowDias = typeof row.dias === 'number' ? row.dias : (parseInt(row.dias, 10) || 0);
+    if (minDias !== '' && !isNaN(Number(minDias))) {
+      if (rowDias < Number(minDias)) return false;
+    }
+    if (maxDias !== '' && !isNaN(Number(maxDias))) {
+      if (rowDias > Number(maxDias)) return false;
+    }
+    // 6. Rango de Fechas
+    const rowDate = (row.fechaAsignacion || row.fechaPago || row.fechaInicio || row.fechaTerminoCampo || row.createdAt || '')
+      ? String(row.fechaAsignacion || row.fechaPago || row.fechaInicio || row.fechaTerminoCampo || row.createdAt).substring(0, 10)
+      : '';
+    if (fechaDesde && rowDate && rowDate < fechaDesde) return false;
+    if (fechaHasta && rowDate && rowDate > fechaHasta) return false;
+
+    // 7. Color Filter
     if (hasColorFilter && selectedColors.length > 0 && !selectedColors.includes('TODOS')) {
       const rowColors = getRowColors(row);
       const matches = selectedColors.some(
@@ -218,7 +285,7 @@ export default function ReusableTable<T extends Record<string, any>>({
       );
       if (!matches) return false;
     }
-    // 5. Search Text Filter
+    // 8. Search Text Filter
     return visibleColumns.some((col) =>
       String(row[col.key] ?? '')
         .toLowerCase()
@@ -296,34 +363,106 @@ export default function ReusableTable<T extends Record<string, any>>({
               width: { xs: '100%', md: 'auto' },
             }}
           >
-            {hasStatusColumn && (
+            {hasStatusColumn && !allowAdvancedFilters && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
                 <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                   Estatus:
                 </Typography>
                 <Select
+                  multiple
                   size="small"
                   fullWidth
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  value={statusFilter.length === 0 ? ['TODOS'] : statusFilter}
+                  onChange={(e) => {
+                    const val =
+                      typeof e.target.value === 'string'
+                        ? e.target.value.split(',')
+                        : (e.target.value as string[]);
+                    if (val.includes('TODOS')) {
+                      if (statusFilter.includes('TODOS')) {
+                        const clean = val.filter((v) => v !== 'TODOS');
+                        setStatusFilter(clean.length === 0 ? ['TODOS'] : clean);
+                      } else {
+                        setStatusFilter(['TODOS']);
+                      }
+                    } else {
+                      setStatusFilter(val.length === 0 ? ['TODOS'] : val);
+                    }
+                  }}
+                  renderValue={(selected) => {
+                    const sel = selected as string[];
+                    if (sel.includes('TODOS') || sel.length === 0) return 'TODOS';
+                    const labels: Record<string, string> = {
+                      PENDIENTE: 'ASIGNAR',
+                      ASIGNADA: 'PROCESO',
+                      TERMINADA: 'TERMINADA',
+                      CAPITALIZADA: 'CAPITALIZADA',
+                      CANCELADA: 'CANCELADA',
+                    };
+                    return sel.map((s) => labels[s] || s).join(', ');
+                  }}
                   sx={{
                     height: 36,
-                    minWidth: { xs: 95, sm: 120 },
+                    minWidth: { xs: 110, sm: 140 },
+                    maxWidth: { xs: 200, sm: 260 },
                     fontSize: '0.8rem',
                     borderRadius: '8px',
                     backgroundColor: '#ffffff',
                   }}
                 >
-                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem' }}>TODOS</MenuItem>
-                  <MenuItem value="PENDIENTE" sx={{ fontSize: '0.8rem' }}>ASIGNAR</MenuItem>
-                  <MenuItem value="ASIGNADA" sx={{ fontSize: '0.8rem' }}>PROCESO</MenuItem>
-                  <MenuItem value="TERMINADA" sx={{ fontSize: '0.8rem' }}>TERMINADA</MenuItem>
-                  <MenuItem value="CAPITALIZADA" sx={{ fontSize: '0.8rem' }}>CAPITALIZADA</MenuItem>
+                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('TODOS') || statusFilter.length === 0}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="TODOS" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: (statusFilter.includes('TODOS') || statusFilter.length === 0) ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="PENDIENTE" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('PENDIENTE')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="ASIGNAR" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('PENDIENTE') ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="ASIGNADA" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('ASIGNADA')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="PROCESO" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('ASIGNADA') ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="TERMINADA" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('TERMINADA')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="TERMINADA" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('TERMINADA') ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="CAPITALIZADA" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('CAPITALIZADA')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="CAPITALIZADA" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('CAPITALIZADA') ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="CANCELADA" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('CANCELADA')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="CANCELADA" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('CANCELADA') ? 800 : 400 }} />
+                  </MenuItem>
                 </Select>
               </Box>
             )}
 
-            {hasTipoObraColumn && tipoObraOptions.length > 0 && (
+            {hasTipoObraColumn && !allowAdvancedFilters && tipoObraOptions.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
                 <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                   Tipo:
@@ -349,7 +488,7 @@ export default function ReusableTable<T extends Record<string, any>>({
               </Box>
             )}
 
-            {hasAnioColumn && anioOptions.length > 0 && (
+            {hasAnioColumn && !allowAdvancedFilters && anioOptions.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
                 <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                   Año:
@@ -376,7 +515,7 @@ export default function ReusableTable<T extends Record<string, any>>({
             )}
 
             {/* Color Filter Dropdown: VERDES (INVENTARIO), ROJAS (CAPITALIZAR), NARANJAS (CONCILIAR) */}
-            {hasColorFilter && (
+            {hasColorFilter && !allowAdvancedFilters && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 0 auto' } }}>
                 <Typography variant="body2" sx={{ color: 'var(--color-text-light)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
                   Color:
@@ -461,6 +600,51 @@ export default function ReusableTable<T extends Record<string, any>>({
               </Box>
             )}
 
+            {/* Button to Toggle Advanced Filters Panel */}
+            {allowAdvancedFilters && (
+              <Button
+                size="small"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                title={showAdvancedFilters ? 'Ocultar panel de filtros avanzados' : 'Abrir panel de filtros avanzados'}
+                startIcon={<FilterAltIcon fontSize="small" />}
+                sx={{
+                  height: 36,
+                  px: 1.5,
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  backgroundColor: showAdvancedFilters || activeFiltersCount > 0 ? 'rgba(0, 142, 96, 0.1) !important' : '#ffffff !important',
+                  color: showAdvancedFilters || activeFiltersCount > 0 ? 'var(--verde-cfe) !important' : '#334155 !important',
+                  border: showAdvancedFilters || activeFiltersCount > 0 ? '1.5px solid var(--verde-cfe) !important' : '1px solid #cbd5e1 !important',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06) !important',
+                  '&:hover': {
+                    backgroundColor: showAdvancedFilters || activeFiltersCount > 0 ? 'rgba(0, 142, 96, 0.18) !important' : '#f8fafc !important',
+                    borderColor: 'var(--verde-cfe) !important',
+                  },
+                }}
+              >
+                Filtros Avanzados
+                {activeFiltersCount > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 0.8,
+                      bgcolor: 'var(--verde-cfe)',
+                      color: '#ffffff',
+                      borderRadius: '10px',
+                      px: 0.7,
+                      py: 0.1,
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                    }}
+                  >
+                    {activeFiltersCount}
+                  </Box>
+                )}
+              </Button>
+            )}
+
             {/* Toggle button to show/hide Días columns with small Red / Green indicator circle */}
             {hasDiasColumn && (
               <Button
@@ -503,6 +687,315 @@ export default function ReusableTable<T extends Record<string, any>>({
         </Box>
       )}
 
+      {/* 🚀 Panel Desplegable de Filtros Avanzados */}
+      {allowAdvancedFilters && (
+        <Collapse in={showAdvancedFilters}>
+        <Box
+          sx={{
+            mt: 0.5,
+            mb: 2.5,
+            p: 2.2,
+            borderRadius: '12px',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+          }}
+        >
+          {/* Header del Panel */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FilterAltIcon sx={{ color: 'var(--verde-cfe)', fontSize: 22 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '0.3px', fontSize: '0.88rem' }}>
+                Filtros Avanzados
+              </Typography>
+              {activeFiltersCount > 0 && (
+                <Chip
+                  label={`${activeFiltersCount} ${activeFiltersCount === 1 ? 'filtro activo' : 'filtros activos'}`}
+                  size="small"
+                  sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'var(--verde-cfe)', color: '#ffffff' }}
+                />
+              )}
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {activeFiltersCount > 0 && (
+                <Button
+                  size="small"
+                  onClick={handleResetFilters}
+                  startIcon={<FilterAltOffIcon fontSize="small" />}
+                  sx={{
+                    color: '#dc2626',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    p: '3px 10px',
+                    borderRadius: '6px',
+                    '&:hover': { bgcolor: '#fee2e2' },
+                  }}
+                >
+                  Limpiar filtros
+                </Button>
+              )}
+              <Button
+                size="small"
+                onClick={() => setShowAdvancedFilters(false)}
+                sx={{
+                  color: '#64748b',
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                  p: '3px 8px',
+                }}
+              >
+                Cerrar panel
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Grid de Controles de Filtros */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+                lg: 'repeat(4, 1fr)',
+              },
+              gap: 2,
+              alignItems: 'flex-start',
+            }}
+          >
+            {/* 1. Estatus (Múltiple) */}
+            {hasStatusColumn && (
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', mb: 0.5, display: 'block' }}>
+                  ESTATUS (MULTIVARIABLE)
+                </Typography>
+                <Select
+                  multiple
+                  size="small"
+                  fullWidth
+                  value={statusFilter.length === 0 ? ['TODOS'] : statusFilter}
+                  onChange={(e) => {
+                    const val =
+                      typeof e.target.value === 'string'
+                        ? e.target.value.split(',')
+                        : (e.target.value as string[]);
+                    if (val.includes('TODOS')) {
+                      if (statusFilter.includes('TODOS')) {
+                        const clean = val.filter((v) => v !== 'TODOS');
+                        setStatusFilter(clean.length === 0 ? ['TODOS'] : clean);
+                      } else {
+                        setStatusFilter(['TODOS']);
+                      }
+                    } else {
+                      setStatusFilter(val.length === 0 ? ['TODOS'] : val);
+                    }
+                  }}
+                  renderValue={(selected) => {
+                    const sel = selected as string[];
+                    if (sel.includes('TODOS') || sel.length === 0) return 'TODOS';
+                    const labels: Record<string, string> = {
+                      PENDIENTE: 'ASIGNAR',
+                      ASIGNADA: 'PROCESO',
+                      TERMINADA: 'TERMINADA',
+                      CAPITALIZADA: 'CAPITALIZADA',
+                      CANCELADA: 'CANCELADA',
+                    };
+                    return sel.map((s) => labels[s] || s).join(', ');
+                  }}
+                  sx={{
+                    height: 36,
+                    fontSize: '0.8rem',
+                    borderRadius: '8px',
+                    backgroundColor: '#ffffff',
+                  }}
+                >
+                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('TODOS') || statusFilter.length === 0}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="TODOS" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: (statusFilter.includes('TODOS') || statusFilter.length === 0) ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="PENDIENTE" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('PENDIENTE')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="ASIGNAR" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('PENDIENTE') ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="ASIGNADA" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('ASIGNADA')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="PROCESO" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('ASIGNADA') ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="TERMINADA" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('TERMINADA')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="TERMINADA" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('TERMINADA') ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="CAPITALIZADA" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('CAPITALIZADA')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="CAPITALIZADA" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('CAPITALIZADA') ? 800 : 400 }} />
+                  </MenuItem>
+                  <MenuItem value="CANCELADA" sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={statusFilter.includes('CANCELADA')}
+                      sx={{ p: 0.5, mr: 0.5 }}
+                    />
+                    <ListItemText primary="CANCELADA" primaryTypographyProps={{ fontSize: '0.8rem', fontWeight: statusFilter.includes('CANCELADA') ? 800 : 400 }} />
+                  </MenuItem>
+                </Select>
+              </Box>
+            )}
+
+            {/* 2. Contratista */}
+            {contratistaOptions.length > 0 && (
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', mb: 0.5, display: 'block' }}>
+                  CONTRATISTA
+                </Typography>
+                <Select
+                  size="small"
+                  fullWidth
+                  value={contratistaFilter}
+                  onChange={(e) => setContratistaFilter(e.target.value)}
+                  sx={{ height: 36, fontSize: '0.8rem', bgcolor: '#ffffff', borderRadius: '8px' }}
+                >
+                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem' }}>TODOS ({contratistaOptions.length})</MenuItem>
+                  {contratistaOptions.map((c) => (
+                    <MenuItem key={c} value={c} sx={{ fontSize: '0.8rem' }}>{c}</MenuItem>
+                  ))}
+                </Select>
+              </Box>
+            )}
+
+            {/* 3. Tipo de Obra */}
+            {tipoObraOptions.length > 0 && (
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', mb: 0.5, display: 'block' }}>
+                  TIPO DE OBRA
+                </Typography>
+                <Select
+                  size="small"
+                  fullWidth
+                  value={tipoObraFilter}
+                  onChange={(e) => setTipoObraFilter(e.target.value)}
+                  sx={{ height: 36, fontSize: '0.8rem', bgcolor: '#ffffff', borderRadius: '8px' }}
+                >
+                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem' }}>TODOS ({tipoObraOptions.length})</MenuItem>
+                  {tipoObraOptions.map((t) => (
+                    <MenuItem key={t} value={t} sx={{ fontSize: '0.8rem' }}>{t}</MenuItem>
+                  ))}
+                </Select>
+              </Box>
+            )}
+
+            {/* 4. Año */}
+            {anioOptions.length > 0 && (
+              <Box>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', mb: 0.5, display: 'block' }}>
+                  AÑO
+                </Typography>
+                <Select
+                  size="small"
+                  fullWidth
+                  value={anioFilter}
+                  onChange={(e) => setAnioFilter(e.target.value)}
+                  sx={{ height: 36, fontSize: '0.8rem', bgcolor: '#ffffff', borderRadius: '8px' }}
+                >
+                  <MenuItem value="TODOS" sx={{ fontSize: '0.8rem' }}>TODOS ({anioOptions.length})</MenuItem>
+                  {anioOptions.map((a) => (
+                    <MenuItem key={a} value={a} sx={{ fontSize: '0.8rem' }}>{a}</MenuItem>
+                  ))}
+                </Select>
+              </Box>
+            )}
+
+            {/* 5. Rango de Días Transcurridos */}
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', mb: 0.5, display: 'block' }}>
+                DÍAS TRANSCURRIDOS (MÍN - MÁX)
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  type="number"
+                  placeholder="Mín"
+                  value={minDias}
+                  onChange={(e) => setMinDias(e.target.value)}
+                  sx={{ bgcolor: '#ffffff', '& .MuiOutlinedInput-root': { height: 36, fontSize: '0.8rem' } }}
+                />
+                <Typography variant="body2" sx={{ color: '#94a3b8' }}>-</Typography>
+                <TextField
+                  size="small"
+                  type="number"
+                  placeholder="Máx"
+                  value={maxDias}
+                  onChange={(e) => setMaxDias(e.target.value)}
+                  sx={{ bgcolor: '#ffffff', '& .MuiOutlinedInput-root': { height: 36, fontSize: '0.8rem' } }}
+                />
+              </Box>
+            </Box>
+
+            {/* 6. Rango de Fechas (Desde - Hasta) */}
+            <Box sx={{ gridColumn: { xs: '1', sm: 'span 2' } }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', mb: 0.5, display: 'block' }}>
+                RANGO DE FECHAS (ASIGNACIÓN / INICIO / PAGO)
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  type="date"
+                  label="Desde"
+                  InputLabelProps={{ shrink: true }}
+                  value={fechaDesde}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                  sx={{ bgcolor: '#ffffff', flex: 1, '& .MuiOutlinedInput-root': { height: 36, fontSize: '0.8rem' } }}
+                />
+                <Typography variant="body2" sx={{ color: '#94a3b8' }}>a</Typography>
+                <TextField
+                  size="small"
+                  type="date"
+                  label="Hasta"
+                  InputLabelProps={{ shrink: true }}
+                  value={fechaHasta}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                  sx={{ bgcolor: '#ffffff', flex: 1, '& .MuiOutlinedInput-root': { height: 36, fontSize: '0.8rem' } }}
+                />
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Footer summary inside panel */}
+          <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="caption" sx={{ color: '#64748b' }}>
+              Mostrando <strong>{filtered.length}</strong> de <strong>{rows.length}</strong> obras
+            </Typography>
+            {activeFiltersCount > 0 && (
+              <Typography variant="caption" sx={{ color: 'var(--verde-cfe)', fontWeight: 700 }}>
+                Filtros combinados activos: {activeFiltersCount}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      </Collapse>
+      )}
+
       <TableContainer
         ref={tableContainerRef}
         sx={{
@@ -521,6 +1014,8 @@ export default function ReusableTable<T extends Record<string, any>>({
           sx={{
             minWidth: { xs: '980px', md: '100%' },
             tableLayout: 'fixed',
+            borderCollapse: 'separate',
+            borderSpacing: 0,
           }}
         >
           <TableHead>
@@ -528,31 +1023,66 @@ export default function ReusableTable<T extends Record<string, any>>({
               {visibleColumns.map((col) => (
                 <TableCell
                   key={String(col.key)}
-                  align="center"
+                  align={col.align || 'center'}
                   sx={{
                     width: (col as any).width || 'auto',
+                    minWidth: (col as any).minWidth || undefined,
                     fontWeight: '800',
-                    fontSize: '0.78rem',
-                    letterSpacing: '0.2px',
-                    backgroundColor: '#f8fafc !important',
-                    color: '#1e293b',
-                    py: 1.1,
+                    fontSize: '0.74rem',
+                    letterSpacing: '0.3px',
+                    backgroundColor: '#eef6f3 !important',
+                    color: '#005a3c',
+                    py: 1.0,
                     px: 0.6,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    textAlign: 'center',
-                    borderBottom: '2px solid #cbd5e1',
+                    textAlign: col.align || 'center',
+                    borderBottom: '2.5px solid #008E60 !important',
+                    borderRight: 'none !important',
+                    '&:last-child': {
+                      borderRight: 'none !important',
+                      pr: 1.2,
+                    },
                   }}
                 >
-                  <TableSortLabel
-                    active={orderBy === col.key}
-                    direction={orderBy === col.key ? orderDir : 'asc'}
-                    onClick={() => handleSort(col.key)}
-                    sx={{ width: '100%', justifyContent: 'center' }}
-                  >
-                    {col.label}
-                  </TableSortLabel>
+                  {col.sortable !== false ? (
+                    <TableSortLabel
+                      active={orderBy === col.key}
+                      direction={orderBy === col.key ? orderDir : 'asc'}
+                      onClick={() => handleSort(col.key)}
+                      sx={{
+                        width: '100%',
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: col.align === 'left' ? 'flex-start' : col.align === 'right' ? 'flex-end' : 'center',
+                        textAlign: col.align || 'center',
+                        margin: 0,
+                        padding: 0,
+                        '& .MuiTableSortLabel-icon': {
+                          position: 'absolute',
+                          right: '2px',
+                          display: orderBy === col.key ? 'inline-block !important' : 'none !important',
+                          margin: '0 !important',
+                          width: '14px',
+                          height: '14px',
+                        },
+                        '&.Mui-active': {
+                          color: '#005a3c !important',
+                          '& .MuiTableSortLabel-icon': {
+                            color: '#008E60 !important',
+                          },
+                        },
+                      }}
+                    >
+                      {col.label}
+                    </TableSortLabel>
+                  ) : (
+                    <Box sx={{ width: '100%', textAlign: col.align || 'center', userSelect: 'none' }}>
+                      {col.label}
+                    </Box>
+                  )}
                 </TableCell>
               ))}
             </TableRow>
@@ -566,7 +1096,9 @@ export default function ReusableTable<T extends Record<string, any>>({
                 (row.fechaTermino && String(row.fechaTermino).trim() !== '')
               );
 
-              if (row.estatus === 'CAPITALIZADA') {
+              if (row.estatus === 'CANCELADA') {
+                className = 'status-cancelada';
+              } else if (row.estatus === 'CAPITALIZADA') {
                 if (!hasFechaTerminoCampo) {
                   className = 'status-anomaly-red';
                 } else {
@@ -585,17 +1117,26 @@ export default function ReusableTable<T extends Record<string, any>>({
                 <TableRow key={idx} hover className={className}>
                   {visibleColumns.map((col) => {
                     const alignment = col.align || 'center';
+                    const isTipoObra = col.key === 'tipoObra';
                     return (
                       <TableCell
                         key={String(col.key)}
                         align={alignment}
                         sx={{
                           width: (col as any).width || 'auto',
+                          minWidth: (col as any).minWidth || undefined,
                           py: 0.85,
                           px: 0.6,
-                          fontSize: '0.80rem',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
+                          fontSize: '0.78rem',
+                          textAlign: alignment,
+                          borderRight: 'none !important',
+                          borderBottom: '1px solid #cbd5e1 !important',
+                          '&:last-child': {
+                            borderRight: 'none !important',
+                            pr: 1.2,
+                          },
+                          overflow: isTipoObra ? 'visible' : 'hidden',
+                          textOverflow: isTipoObra ? 'clip' : 'ellipsis',
                           whiteSpace: 'nowrap',
                         }}
                       >

@@ -12,6 +12,11 @@ export class ObrasCreateDto {
   @IsNotEmpty()
   anio: string;
 
+  @ApiPropertyOptional({ example: '2025', description: 'Año de la solicitud o PO' })
+  @IsString()
+  @IsOptional()
+  anioSolicitud?: string;
+
   @ApiProperty({ example: 'AT001', description: 'AT de la obra' })
   @IsString()
   @IsNotEmpty()
@@ -134,8 +139,8 @@ export class ObrasCreateDto {
   @IsOptional()
   fechaPago?: string;
 
-  @ApiPropertyOptional({ enum: ['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA'], default: 'PENDIENTE' })
-  @IsEnum(['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA'])
+  @ApiPropertyOptional({ enum: ['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA', 'CANCELADA'], default: 'PENDIENTE' })
+  @IsEnum(['PENDIENTE', 'ASIGNADA', 'TERMINADA', 'CAPITALIZADA', 'CANCELADA'])
   @IsOptional()
-  estatus?: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA';
+  estatus?: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' | 'CANCELADA';
 }

@@ -36,7 +36,7 @@ provider:
     SMTP_PORT: ${env:SMTP_PORT, '587'}
     SMTP_USER: ${env:SMTP_USER, ''}
     SMTP_PASS: ${env:SMTP_PASS, ''}
-    S3_UPLOADS_BUCKET: ${env:S3_UPLOADS_BUCKET, 'control-de-obras-frontend-808433583479'}
+    S3_UPLOADS_BUCKET: ${env:S3_UPLOADS_BUCKET, 'control-de-obras-uploads-808433583479'}
   iam:
     role:
       statements:

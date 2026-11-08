@@ -62,6 +62,7 @@ export class ObraService {
 
   /** Helper to determine if an Obra is assigned */
   public isObraAsignada(obra: IObra): boolean {
+    if (obra.estatus === 'CANCELADA') return false;
     if (!obra.at || obra.at.trim() === '') return false;
     const calculatedEstatus = this.determineEstatus(obra);
     if (calculatedEstatus !== 'PENDIENTE') return true;
@@ -74,7 +75,10 @@ export class ObraService {
     return false;
   }
 
-  private determineEstatus(obra: IObra): 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' {
+  private determineEstatus(obra: IObra): 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' | 'CANCELADA' {
+    if (obra.estatus === 'CANCELADA') {
+      return 'CANCELADA';
+    }
     if (obra.fechaCapitalizacion && obra.fechaCapitalizacion.trim() !== '') {
       return 'CAPITALIZADA';
     }
@@ -170,7 +174,8 @@ export class ObraService {
         );
         const notCapitalized =
           (!obra.fechaCapitalizacion || obra.fechaCapitalizacion.trim() === '') &&
-          obra.estatus !== 'CAPITALIZADA';
+          obra.estatus !== 'CAPITALIZADA' &&
+          obra.estatus !== 'CANCELADA';
 
         return hasFechaTermino && notCapitalized;
       })
@@ -212,11 +217,20 @@ export class ObraService {
     const nombre = (dto.nombreSolicitante || '').trim();
     const calculatedRd = [poblacionToUse, nombre].filter(Boolean).join(' ') || cleanRd || dto.rd || '';
 
+    // If dto.anioSolicitud not set, attempt to derive from id e.g. "ET 00000202/2025"
+    let anioSolicitud = dto.anioSolicitud;
+    if (!anioSolicitud && id.includes('/')) {
+      const parts = id.split('/');
+      const y = parts[parts.length - 1].trim();
+      if (/^\d{4}$/.test(y)) anioSolicitud = y;
+    }
+
     const obraData: IObra = {
       pk,
       sk: id,
       solicitudPo: dto.solicitudPo,
       anio: dto.anio,
+      anioSolicitud: anioSolicitud || dto.anio,
       at: dto.at,
       obra: dto.obra,
       tipoObra: dto.tipoObra,
@@ -260,6 +274,7 @@ export class ObraService {
       pk,
       sk,
       solicitudPo: dto.solicitudPo || existing?.solicitudPo,
+      anioSolicitud: dto.anioSolicitud || existing?.anioSolicitud,
     };
 
     const cleanPoblacion = (dto.poblacion || existing?.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
@@ -271,8 +286,9 @@ export class ObraService {
     updatedData.rd = calculatedRd;
     if (cleanPoblacion) updatedData.poblacion = cleanPoblacion;
 
-    if (planoPdfPath) {
-      updatedData.planoPdf = planoPdfPath;
+    const resolvedPlanoPdf = planoPdfPath || (dto.planoPdf && String(dto.planoPdf).trim() !== '' ? dto.planoPdf : existing?.planoPdf);
+    if (resolvedPlanoPdf) {
+      updatedData.planoPdf = resolvedPlanoPdf;
     }
 
     if (updatedData.contrato && (updatedData.contrato.toUpperCase() === 'ADMON' || updatedData.contrato.toUpperCase().includes('ADMINISTRAC'))) {
@@ -326,6 +342,33 @@ export class ObraService {
     };
   }
 
+  /** Cancel an Obra */
+  public async cancelar(pk: string, id: string): Promise<IObra> {
+    const cleanId = decodeURIComponent(id);
+    const sk = cleanId.startsWith('obra#') ? cleanId : `obra#${cleanId}`;
+    const keys: IGeneric = { pk, sk };
+    const existing = await this.obraRepository.obraDetail(keys);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const updatedData: IObra = {
+      ...existing,
+      pk,
+      sk,
+      estatus: 'CANCELADA',
+      fechaCancelacion: existing?.fechaCancelacion || todayStr,
+    };
+    if (updatedData.oficioConsecutivo != null) {
+      delete updatedData.oficioConsecutivo;
+    }
+
+    const updated = await this.obraRepository.obraUpdate(updatedData);
+    this.logger.log(`[OBRA_CANCELADA] Obra ${sk} has been set to CANCELADA with fechaCancelacion=${updatedData.fechaCancelacion}.`);
+    return {
+      ...updated,
+      id: cleanId,
+    };
+  }
+
   /** Assign work fields */
   public async asignar(
     pk: string,
@@ -355,6 +398,12 @@ export class ObraService {
       pk,
       sk: fullSk,
     } as IObra;
+
+    if (!updatedData.anioSolicitud && cleanId.includes('/')) {
+      const parts = cleanId.split('/');
+      const y = parts[parts.length - 1].trim();
+      if (/^\d{4}$/.test(y)) updatedData.anioSolicitud = y;
+    }
 
     const cleanPoblacion = (data.poblacion || existing?.poblacion || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
     const cleanRd = (data.rd || existing?.rd || '').replace(/\s*municipio\s+de\s+.*$/i, '').trim();
@@ -1131,20 +1180,46 @@ export class ObraService {
     return dateStr;
   }
 
-  private standardizeSolicitud(val: string): string {
+  private standardizeSolicitud(val: string, yearHint?: string): { solicitudPo: string; anioSolicitud: string } {
     const rawStr = String(val || '').trim();
-    const clean = rawStr
+    if (!rawStr) return { solicitudPo: '', anioSolicitud: '' };
+
+    let basePart = rawStr;
+    let extractedYear = '';
+
+    // Check if rawStr contains a slash with year e.g. "ET 00000202/2025" or "202/2025"
+    if (rawStr.includes('/')) {
+      const parts = rawStr.split('/');
+      basePart = parts[0].trim();
+      const possibleYear = parts[parts.length - 1].trim();
+      if (/^\d{4}$/.test(possibleYear)) {
+        extractedYear = possibleYear;
+      }
+    }
+
+    // If no year found in the slash, check yearHint
+    if (!extractedYear && yearHint) {
+      const cleanYear = String(yearHint).trim();
+      if (/^\d{4}$/.test(cleanYear)) {
+        extractedYear = cleanYear;
+      }
+    }
+
+    const cleanNumber = basePart
       .replace(/^(ET|PO|RPT|ET-|PO-)/i, '')
       .replace(/[^0-9]/g, '')
       .trim();
-    
-    if (!clean) return '';
-    const padded = clean.padStart(8, '0');
-    
-    if (rawStr.toUpperCase().includes('PO')) {
-      return `PO ${padded}`;
+
+    if (!cleanNumber) {
+      return { solicitudPo: rawStr, anioSolicitud: extractedYear };
     }
-    return `ET ${padded}`;
+
+    const padded = cleanNumber.padStart(8, '0');
+    const prefix = rawStr.toUpperCase().includes('PO') ? 'PO' : 'ET';
+
+    // Format: "ET 00000202/2025" or "PO 00000202/2025" (or "ET 00000202" if no year available)
+    const solicitudPo = extractedYear ? `${prefix} ${padded}/${extractedYear}` : `${prefix} ${padded}`;
+    return { solicitudPo, anioSolicitud: extractedYear };
   }
 
   public async importar(pk: string, rows: any[], type: 'siad-plus' | 'senasol' = 'siad-plus'): Promise<{ count: number }> {
@@ -1153,9 +1228,20 @@ export class ObraService {
     if (type === 'senasol') {
       for (const row of rows) {
         try {
-          let solicitudPo = row['Solicitud/PO'] || row['Solicitud'] || row['PO/ET'] || row['PO'] || row['Solicitud PO'] || row['Nro. de Solicitud'] || row['SOLICITUD'] || '';
+          const rawSolicitud =
+            row['Solicitud/PO'] ||
+            row['Solicitud'] ||
+            row['PO/ET'] ||
+            row['PO'] ||
+            row['Solicitud PO'] ||
+            row['Nro. de Solicitud'] ||
+            row['SOLICITUD'] ||
+            '';
+          if (!rawSolicitud) continue;
+
+          const rawSenasolYear = row['Año'] || row['anio'] || row['AÑO'] || row['Ejercicio'] || '';
+          const { solicitudPo, anioSolicitud } = this.standardizeSolicitud(rawSolicitud, rawSenasolYear);
           if (!solicitudPo) continue;
-          solicitudPo = this.standardizeSolicitud(solicitudPo);
 
           const keys: IGeneric = { pk, sk: solicitudPo };
           let existing: IObra | null = null;
@@ -1180,17 +1266,19 @@ export class ObraService {
               ...existing,
               fechaPago: fechaPago || existing.fechaPago,
               diasObraAPORTACIONES: diasObraAPORTACIONES || existing.diasObraAPORTACIONES,
+              anioSolicitud: anioSolicitud || existing.anioSolicitud,
             };
             if (latitudVal) updatedData.coordenadaY = latitudVal;
             if (longitudVal) updatedData.coordenadaX = longitudVal;
-            
+
             await this.obraRepository.obraUpdate(updatedData);
           } else {
             const newData: IObra = {
               pk,
               sk: solicitudPo,
               solicitudPo,
-              anio: new Date().getFullYear().toString(),
+              anio: anioSolicitud || new Date().getFullYear().toString(),
+              anioSolicitud: anioSolicitud || new Date().getFullYear().toString(),
               tipoObra: 'SSEEBRA',
               fechaPago,
               diasObraAPORTACIONES,
@@ -1218,7 +1306,7 @@ export class ObraService {
     // SIAD PLUS flow
     for (const row of rows) {
       try {
-        const obraKey = Object.keys(row || {}).find(k => {
+        const obraKey = Object.keys(row || {}).find((k) => {
           const lk = k.toLowerCase().trim();
           return lk === 'obra' || lk.startsWith('obra');
         });
@@ -1229,21 +1317,18 @@ export class ObraService {
           continue;
         }
 
-        let solicitudPo = row['Solicitud/PO'] || row['Solicitud'] || row['PO/ET'] || row['PO'] || row['ET'] || '';
-        const poEt = String(row['PO/ET'] || row['PO'] || '').trim();
-        if (poEt.includes('/')) {
-          const parts = poEt.split('/');
-          solicitudPo = parts[0].trim();
-        }
-
-        solicitudPo = this.standardizeSolicitud(solicitudPo);
-
+        const rawPoEt = row['Solicitud/PO'] || row['Solicitud'] || row['PO/ET'] || row['PO'] || row['ET'] || '';
         const rawObraText = String(obraKey ? row[obraKey] : (row['Obra'] || '')).trim();
 
-        if (!solicitudPo && !rawObraText) {
+        if (!rawPoEt && !rawObraText) {
           continue;
         }
-        let anio = row['Año'] || row['anio'] || '';
+
+        const rawYearCol = row['Año'] || row['anio'] || row['AÑO'] || '';
+        let { solicitudPo, anioSolicitud } = this.standardizeSolicitud(rawPoEt, rawYearCol);
+
+        // Extract Obra year from rawObraText e.g. "E0004/2026"
+        let anio = rawYearCol;
         if (rawObraText.includes('/')) {
           const parts = rawObraText.split('/');
           const possibleYear = parts[parts.length - 1].trim();
@@ -1256,7 +1341,10 @@ export class ObraService {
           solicitudPo = `IMP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         }
         if (!anio) {
-          anio = new Date().getFullYear().toString();
+          anio = anioSolicitud || new Date().getFullYear().toString();
+        }
+        if (!anioSolicitud) {
+          anioSolicitud = anio;
         }
 
         const at = row['AT'] || '';
@@ -1272,7 +1360,7 @@ export class ObraService {
 
         const rawPoEtVal = String(row['PO/ET'] || '').toUpperCase().trim();
         const rawObraVal = String(row['Obra'] || '').toUpperCase().trim();
-        
+
         let tipoObra = '';
         if (rawPoEtVal.includes('PO')) {
           tipoObra = 'RPT';
@@ -1283,7 +1371,7 @@ export class ObraService {
             tipoObra = 'SSEEBRA';
           }
         }
-        
+
         if (!tipoObra) {
           const rawTipoObraCol = String(row['Tipo de Obra'] || row['Tipo Solución'] || '').toUpperCase().trim();
           if (rawTipoObraCol.includes('RPT') || rawTipoObraCol.includes('PERDIDAS')) {
@@ -1298,17 +1386,17 @@ export class ObraService {
         const poblacion = row['Poblacion'] || row['Población'] || row['POBLACION'] || '';
         const municipio = row['Municipio'] || row['MUNICIPIO'] || '';
         const nombreSolicitante = row['Nombre'] || row['Solicitante'] || row['Cliente'] || row['NOMBRE'] || '';
-        const rawZonaKey = Object.keys(row || {}).find(k => k.toLowerCase().trim() === 'zona');
+        const rawZonaKey = Object.keys(row || {}).find((k) => k.toLowerCase().trim() === 'zona');
         const rawZona = String(
-          (rawZonaKey ? row[rawZonaKey] : '') || row['Zona'] || row['ZONA'] || row['zona'] || row['Zona '] || row['ZONA '] || ''
+          (rawZonaKey ? row[rawZonaKey] : '') || row['Zona'] || row['ZONA'] || row['zona'] || row['Zona '] || row['ZONA '] || '',
         ).trim();
 
-        const rawAreaKey = Object.keys(row || {}).find(k => {
+        const rawAreaKey = Object.keys(row || {}).find((k) => {
           const lk = k.toLowerCase().trim();
           return lk === 'area' || lk === 'área';
         });
         const rawArea = String(
-          (rawAreaKey ? row[rawAreaKey] : '') || row['Area'] || row['Área'] || row['AREA'] || row['AREA '] || ''
+          (rawAreaKey ? row[rawAreaKey] : '') || row['Area'] || row['Área'] || row['AREA'] || row['AREA '] || '',
         ).trim();
         const orden = row['Orden'] || row['ORDEN'] || '';
         const activo = row['Activo'] || row['ACTIVO'] || '';
@@ -1334,7 +1422,7 @@ export class ObraService {
         const fechaCapitalizacion = row['Fecha de Capitalizacion'] || row['Fecha Capitalizada'] || '';
         // Strict literal "Contrato" column extraction for SIAD PLUS
         const rawContrato = row['Contrato'] || row['contrato'] || row['CONTRATO'] || row['Contrato '] || row['CONTRATO '] || '';
-        
+
         const isGenericOrDate = (val: any) => {
           const s = String(val || '').trim();
           const u = s.toUpperCase();
@@ -1346,8 +1434,13 @@ export class ObraService {
 
         const validContrato = !isGenericOrDate(rawContrato) ? String(rawContrato).trim() : '';
 
-        const contratistaKey = Object.keys(row || {}).find(k => k.toLowerCase().trim().includes('contratista'));
-        const contratista = (contratistaKey ? row[contratistaKey] : '') || row['Contratista'] || row['CONTRATISTA'] || row['Empresa Contratista'] || '';
+        const contratistaKey = Object.keys(row || {}).find((k) => k.toLowerCase().trim().includes('contratista'));
+        const contratista =
+          (contratistaKey ? row[contratistaKey] : '') ||
+          row['Contratista'] ||
+          row['CONTRATISTA'] ||
+          row['Empresa Contratista'] ||
+          '';
 
         const fechaPago = row['Fecha de Pago'] || row['Fecha Pago'] || row['Pago'] || '';
 
@@ -1365,6 +1458,7 @@ export class ObraService {
           sk: solicitudPo,
           solicitudPo,
           anio: anio || existing?.anio || new Date().getFullYear().toString(),
+          anioSolicitud: anioSolicitud || existing?.anioSolicitud || anio,
           at: at || existing?.at || '',
           obra: obra || existing?.obra || 'Importada',
           tipoObra: tipoObra || existing?.tipoObra || 'SSEEBRA',
@@ -1377,7 +1471,7 @@ export class ObraService {
           orden: orden || existing?.orden || '',
           activo: activo || existing?.activo || '',
           contrato: validContrato || existing?.contrato || '',
-          contratista: (contratista && !isGenericOrDate(contratista)) ? String(contratista).trim() : ((existing as any)?.contratista || ''),
+          contratista: contratista && !isGenericOrDate(contratista) ? String(contratista).trim() : (existing as any)?.contratista || '',
           atRetiro: atRetiro || (existing as any)?.atRetiro || '',
           siadRetiro: siadRetiro || (existing as any)?.siadRetiro || '',
           ordenRetiro: ordenRetiro || existing?.ordenRetiro || '',
@@ -1388,7 +1482,7 @@ export class ObraService {
           fechaPago: fechaPago || existing?.fechaPago || '',
           coordenadaX: coordenadaX || existing?.coordenadaX || '',
           coordenadaY: coordenadaY || existing?.coordenadaY || '',
-          
+
           oficio: existing?.oficio || '',
           fechaAut: existing?.fechaAut || '',
           materialesSalida: existing?.materialesSalida || '',

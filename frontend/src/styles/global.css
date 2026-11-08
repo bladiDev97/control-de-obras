@@ -343,6 +343,23 @@ body {
   background-color: #fca5a5 !important;
 }
 
+.MuiTableRow-root.status-cancelada {
+  background-color: #b43c3c !important; /* Rojo platino intenso */
+  color: #ffffff !important;
+}
+.MuiTableRow-root.status-cancelada td,
+.MuiTableRow-root.status-cancelada .MuiTableCell-root {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+.MuiTableRow-root.status-cancelada a {
+  color: #ffffff !important;
+  text-decoration: underline !important;
+}
+.MuiTableRow-root.status-cancelada:hover {
+  background-color: #9e2e2e !important;
+}
+
 .MuiTableRow-root.status-pendiente,
 .MuiTableRow-root.status-asignada {
   background-color: #ffffff !important; /* Pure white background for pending/process rows */

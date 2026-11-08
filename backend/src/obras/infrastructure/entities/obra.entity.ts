@@ -29,6 +29,9 @@ export class ObraEntity extends GenericEntity implements IObra {
   anio: string;
 
   @Attribute()
+  anioSolicitud?: string;
+
+  @Attribute()
   at: string;
 
   @Attribute()
@@ -140,5 +143,8 @@ export class ObraEntity extends GenericEntity implements IObra {
   coordenadaY?: string;
 
   @Attribute()
-  estatus: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA';
+  fechaCancelacion?: string;
+
+  @Attribute()
+  estatus: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' | 'CANCELADA';
 }

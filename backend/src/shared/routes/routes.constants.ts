@@ -20,6 +20,7 @@ export const Routes = {
     Create: 'create',
     Update: 'update',
     Terminar: ':id/terminar',
+    Cancelar: ':id/cancelar',
     Asignar: ':id/asignar',
     Importar: 'importar',
     Bitacoras: ':id/bitacoras',

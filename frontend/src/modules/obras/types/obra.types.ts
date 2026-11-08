@@ -2,6 +2,7 @@ export interface Obra {
   id: string;
   solicitudPo: string;
   anio: string;
+  anioSolicitud?: string;
   at: string;
   obra: string;
   tipoObra: string;
@@ -42,6 +43,7 @@ export interface Obra {
   numeroOficio?: string;
   coordenadaX?: string;
   coordenadaY?: string;
+  fechaCancelacion?: string;
 
-  estatus: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA';
+  estatus: 'PENDIENTE' | 'ASIGNADA' | 'TERMINADA' | 'CAPITALIZADA' | 'CANCELADA';
 }
