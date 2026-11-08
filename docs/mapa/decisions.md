@@ -9,3 +9,4 @@
 **Decisión**: Colorear los marcadores de obras en el mapa según el estado (`PENDIENTE`, `ASIGNADA`, `TERMINADA`, etc.) mediante íconos customizados de Leaflet.
 **Motivo**: Facilitar la identificación visual rápida del estado operativo territorial a los supervisores.
 **Trade-off**: Requiere mantenimiento de los assets de íconos SVG o PNG por cada estado posible.
+

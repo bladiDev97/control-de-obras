@@ -17,3 +17,4 @@ Implementado en `src/modules/capitalizacion/`. Permite revisar y registrar exped
 
 ## Decisiones pendientes
 - Ninguna bloqueante por el momento.
+

@@ -14,3 +14,4 @@
 **Decisión**: Al reasignar una obra, preservar y adjuntar el plano técnico existente en el nuevo oficio de asignación generado.
 **Motivo**: El plano técnico es parte del expediente de la obra independientemente del contratista asignado.
 **Trade-off**: Ninguno significativo.
+

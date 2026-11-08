@@ -21,3 +21,4 @@ Estable y funcional en backend y frontend. Cuenta con endpoints REST completos y
 
 ## Notas para la próxima sesión
 - Los selectores de personal en los formularios de asignación de obras deben excluir registros con `isDelete: true`.
+

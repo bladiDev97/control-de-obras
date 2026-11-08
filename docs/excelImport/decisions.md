@@ -9,3 +9,4 @@
 **Decisión**: Incluir soporte explícito para el formato `.xlsb` (Excel Binary Workbook) utilizado en los reportes SIAD de CFE.
 **Motivo**: Los archivos SIAD exportados por los sistemas internos de CFE son en formato binario `.xlsb` y no pueden leerse con parsers estándar de `.xlsx`.
 **Trade-off**: SheetJS soporta `.xlsb` pero la lectura puede ser más lenta en archivos de gran tamaño.
+

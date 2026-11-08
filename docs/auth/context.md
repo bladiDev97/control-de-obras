@@ -22,3 +22,4 @@ Completamente operativo y funcional. Expone endpoints de login, registro, perfil
 
 ## Notas para la próxima sesión
 - El `CryptoService.encryptEmail` es el punto de entrada para toda búsqueda de usuario por email; cualquier cambio en su algoritmo requiere migración de llaves en DynamoDB.
+

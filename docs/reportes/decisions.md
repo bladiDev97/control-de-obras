@@ -9,3 +9,4 @@
 **Decisión**: Usar la librería `xlsx` (SheetJS) en cliente para exportar reportes tabulares en formato `.xlsx`.
 **Motivo**: Permite al personal administrativo manipular los datos exportados sin herramientas adicionales.
 **Trade-off**: El tamaño del bundle del cliente aumenta por la dependencia de `xlsx`, mitigado por la carga asíncrona del módulo.
+

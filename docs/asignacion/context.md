@@ -22,3 +22,4 @@ Implementado como parte del módulo de obras (`src/modules/obras/`) y en el back
 
 ## Notas para la próxima sesión
 - El flujo de asignación pasa por `ObraService.asignarObra` → generación de PDF → subida a S3 → actualización de `planoPdf` en la entidad. Cualquier modificación al oficio PDF debe considerar este pipeline completo.
+

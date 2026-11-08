@@ -9,3 +9,4 @@
 **Decisión**: Las rutas de configuración del sistema (`/config/*`) requieren autenticación JWT con rol de administrador.
 **Motivo**: Evitar que usuarios no autorizados modifiquen canales de notificación o credenciales del sistema.
 **Trade-off**: Ninguno significativo; refuerza la seguridad del panel de administración.
+

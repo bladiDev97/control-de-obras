@@ -9,3 +9,4 @@
 **Decisión**: Migrar la tabla de capitalización al componente compartido `ReusableTable` para alinear la experiencia visual con el módulo de obras.
 **Motivo**: Garantizar consistencia visual y reducir la duplicación de lógica de filtrado y presentación tabular.
 **Trade-off**: Requiere mapeo de columnas y configuración de props específicas del módulo.
+

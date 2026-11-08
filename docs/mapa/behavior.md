@@ -15,3 +15,4 @@ Visualización geoespacial interactiva de obras y circuitos eléctricos para an�
 1. Solo se renderiza un marcador si la obra dispone de coordenadas numéricas válidas (latitud y longitud finitas).
 2. Las obras canceladas pueden aparecer en el mapa con un estilo visual diferenciado (marcador atenuado o de color distinto).
 3. Al renderizar muchas obras simultáneamente, aplicar clustering para preservar el rendimiento del cliente.
+

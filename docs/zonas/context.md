@@ -17,3 +17,4 @@ Completamente implementado y estable. Catálogo base configurado en la base de d
 
 ## Decisiones pendientes
 - Ninguna bloqueante por el momento.
+

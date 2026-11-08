@@ -17,3 +17,4 @@ Gestiona el sistema de avisos y alertas automatizadas: notificaciones por correo
 1. El cron job `ObrasVencidasCron` se ejecuta periódicamente (cada 15 minutos o según CloudWatch) para detectar obras con fechas vencidas.
 2. Si las variables SMTP o de WhatsApp no están configuradas en el entorno, el servicio debe capturar el error sin interrumpir el flujo principal de la API.
 3. Las notificaciones a contratistas solo se envían para obras en estado `ASIGNADA` con fechas programadas activas.
+

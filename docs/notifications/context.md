@@ -18,3 +18,4 @@ Implementado y funcional con servicios de correo (`MailService`), mensajería (`
 
 ## Decisiones pendientes
 - Evaluar el uso de Amazon SES en reemplazo de servidores SMTP genéricos para entornos de producción AWS.
+

@@ -17,3 +17,4 @@ Carga y procesamiento masivo de datos provenientes de plantillas Excel (`.xlsx`,
 2. Los encabezados de columna deben normalizarse (eliminar acentos, espacios, mayúsculas/minúsculas inconsistentes) antes del mapeo a objetos tipados.
 3. Se debe presentar un resumen de validación al usuario antes de confirmar la importación definitiva.
 4. Archivos corruptos o con hojas vacías deben ser rechazados con un mensaje de error claro.
+

@@ -9,3 +9,4 @@
 **Decisión**: La llave de partición en DynamoDB para usuarios utiliza hashing o sanitización vía `CryptoService.encryptEmail(pk)`.
 **Motivo**: Proteger datos de identificación personal (PII) en la llave primaria de DynamoDB.
 **Trade-off**: Cualquier consulta por email debe normalizar y cifrar la clave de búsqueda antes de consultar DynamoDB.
+

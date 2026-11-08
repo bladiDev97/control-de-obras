@@ -17,3 +17,4 @@ Implementado en `src/modules/reportes/`. Permite generar resúmenes tabulares de
 
 ## Decisiones pendientes
 - Ninguna bloqueante por el momento.
+

@@ -20,3 +20,4 @@ Implementado en `src/modules/mapa/`. Presenta el mapa base con marcadores de las
 
 ## Notas para la próxima sesión
 - Verificar que el CSS de Leaflet esté importado en el punto de entrada del módulo para evitar marcadores rotos tras build de Vite.
+

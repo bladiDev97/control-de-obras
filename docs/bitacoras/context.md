@@ -20,3 +20,4 @@ Implementado en `src/modules/bitacoras/`. Maneja el registro de notas técnicas 
 
 ## Notas para la próxima sesión
 - Los archivos de historia de bitácoras CFE se extraen de reportes 880/980 con el script `extract_history.py` en `frontend/`.
+

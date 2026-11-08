@@ -14,3 +14,4 @@ Gestiona la división territorial y administrativa de las obras. Permite categor
 1. El código identificador de zona debe ser único dentro del sistema.
 2. Una obra pertenece a una sola zona geográfica principal.
 3. No se puede dar de baja una zona si tiene obras activas (`PENDIENTE` o `ASIGNADA`) adscritas a ella.
+

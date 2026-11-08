@@ -9,3 +9,4 @@
 **Decisión**: Configurar tareas periódicas tanto con `@nestjs/schedule` para desarrollo local como con eventos CloudWatch Scheduled en `serverless.yml` (`rate(15 minutes)`).
 **Motivo**: En AWS Lambda, las instancias se congelan al terminar la petición HTTP; un cron puramente en memoria no se dispararía sin un evento programado de CloudWatch.
 **Trade-off**: Necesario asegurar que la ejecución periódica no cause solapamientos ni consumos excesivos de cómputo en Lambda.
+

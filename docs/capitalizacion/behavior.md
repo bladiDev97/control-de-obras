@@ -16,3 +16,4 @@ Control y seguimiento de obras concluidas que están aptas para el proceso conta
 1. Solo las obras en estado `TERMINADA` son elegibles para iniciar el proceso de capitalización.
 2. Una vez registrada `fechaCapitalizacion`, el estado de la obra pasa automáticamente a `CAPITALIZADA`.
 3. Los filtros de capitalización deben permitir segmentar por ejercicio fiscal y circuito para facilitar el cierre contable anual.
+

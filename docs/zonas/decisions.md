@@ -9,3 +9,4 @@
 **Decisión**: Las zonas se cargan como catálogo en los filtros de Obras, Contratos y en el Mapa Interactivo.
 **Motivo**: Proporcionar segmentación geográfica consistente y reutilizable en todos los módulos del sistema.
 **Trade-off**: El catálogo debe invalidarse o refrescarse si se agrega o modifica una zona durante la sesión activa.
+

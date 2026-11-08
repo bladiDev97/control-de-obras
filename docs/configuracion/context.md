@@ -17,3 +17,4 @@ Implementado en `src/modules/configuracion/`. Permite gestionar parámetros del 
 
 ## Decisiones pendientes
 - Ninguna bloqueante por el momento.
+

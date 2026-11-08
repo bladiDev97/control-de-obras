@@ -16,3 +16,4 @@ Gestiona el ciclo de identidad de los usuarios del sistema: registro, autenticac
 2. El email es el identificador único del usuario en el sistema y es la partition key en DynamoDB.
 3. Las peticiones a rutas protegidas deben portar el header `Authorization: Bearer <token>`.
 4. Los tokens expirados o con firma inválida deben retornar HTTP 401 Unauthorized de forma inmediata.
+

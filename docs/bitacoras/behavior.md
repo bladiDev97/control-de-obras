@@ -17,3 +17,4 @@ Registro, seguimiento y consulta de bitácoras de campo asociadas a las obras: n
 1. Las bitácoras se asocian obligatoriamente a una obra registrada en el sistema.
 2. Los avisos MT tienen un ciclo: apertura, seguimiento y cierre. No se pueden cerrar sin registrar la fecha de resolución.
 3. Los formatos generados deben incluir membrete institucional y firma del supervisor responsable.
+

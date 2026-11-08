@@ -15,3 +15,4 @@ Administración de parámetros globales del sistema: ajuste de canales de notifi
 1. Las credenciales de configuración (SMTP, WhatsApp) nunca deben exponerse en logs ni respuestas de API.
 2. La confirmación de guardado de configuraciones críticas debe requerir acción explícita del usuario (doble confirmación o botón dedicado).
 3. Las pruebas de conectividad deben ejecutarse en modo no-destructivo (sin enviar mensajes reales a usuarios del sistema).
+

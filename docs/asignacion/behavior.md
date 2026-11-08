@@ -18,3 +18,4 @@ Permite la asignación formal de contratistas y personal técnico a las obras se
 2. La reasignación requiere notificar al contratista anterior y al nuevo mediante correo o WhatsApp.
 3. El número de oficio asignado debe ser consecutivo, único y auditado. No se puede saltar o duplicar consecutivos sin autorización explícita.
 4. Las obras canceladas no pueden ser reasignadas.
+

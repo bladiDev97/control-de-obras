@@ -18,3 +18,4 @@ Implementado en `src/modules/excelImport/`. Soporta formatos XLSX y XLSB habitua
 
 ## Decisiones pendientes
 - Ninguna bloqueante por el momento.
+
