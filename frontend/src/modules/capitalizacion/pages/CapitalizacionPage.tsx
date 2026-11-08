@@ -63,11 +63,16 @@ export default function CapitalizacionPage() {
       key: 'at',
       label: 'AT',
       render: (row) => {
-        const dias = row.diasSinCapitalizar ?? 0;
-        let color = '#2e7d32';
-        let bg = '#e8f5e9';
-        if (dias >= 17) { color = '#c62828'; bg = '#ffebee'; }
-        else if (dias >= 11) { color = '#ef6c00'; bg = '#fff3e0'; }
+        const hasFechaTermino = !!(row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '');
+        const dias = hasFechaTermino ? row.diasSinCapitalizar : undefined;
+        let color = '#555';
+        let bg = '#f5f5f5';
+        if (typeof dias === 'number') {
+          color = '#2e7d32';
+          bg = '#e8f5e9';
+          if (dias >= 17) { color = '#c62828'; bg = '#ffebee'; }
+          else if (dias >= 11) { color = '#ef6c00'; bg = '#fff3e0'; }
+        }
 
         return (
           <span style={{ backgroundColor: bg, color, padding: '3px 8px', borderRadius: '8px', fontWeight: '800' }}>
@@ -80,11 +85,16 @@ export default function CapitalizacionPage() {
       key: 'obra',
       label: 'Obra',
       render: (row) => {
-        const dias = row.diasSinCapitalizar ?? 0;
-        let color = '#2e7d32';
-        let bg = '#e8f5e9';
-        if (dias >= 17) { color = '#c62828'; bg = '#ffebee'; }
-        else if (dias >= 11) { color = '#ef6c00'; bg = '#fff3e0'; }
+        const hasFechaTermino = !!(row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '');
+        const dias = hasFechaTermino ? row.diasSinCapitalizar : undefined;
+        let color = '#555';
+        let bg = '#f5f5f5';
+        if (typeof dias === 'number') {
+          color = '#2e7d32';
+          bg = '#e8f5e9';
+          if (dias >= 17) { color = '#c62828'; bg = '#ffebee'; }
+          else if (dias >= 11) { color = '#ef6c00'; bg = '#fff3e0'; }
+        }
 
         return (
           <span style={{ backgroundColor: bg, color, padding: '3px 8px', borderRadius: '8px', fontWeight: '800' }}>
@@ -102,7 +112,22 @@ export default function CapitalizacionPage() {
       key: 'diasSinCapitalizar',
       label: 'Días sin Capitalizar',
       render: (row) => {
-        const dias = row.diasSinCapitalizar ?? 0;
+        const hasFechaTermino = !!(row.fechaFinConstruccion && String(row.fechaFinConstruccion).trim() !== '');
+        if (!hasFechaTermino || row.diasSinCapitalizar === undefined || row.diasSinCapitalizar === null) {
+          return (
+            <span
+              onClick={() => {
+                setSelected(row);
+                setFechaCapitalizacion(new Date().toISOString().slice(0, 10));
+              }}
+              style={{ color: '#888', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              -
+            </span>
+          );
+        }
+
+        const dias = row.diasSinCapitalizar;
         let color = '#2e7d32'; // Verde (10 o menor)
         if (dias >= 17) color = '#c62828'; // Rojo (a partir de 17 días)
         else if (dias >= 11) color = '#ef6c00'; // Amarillo/Naranja (de 11 a 16 días)

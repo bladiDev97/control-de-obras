@@ -163,7 +163,7 @@ export default function ReusableTable<T extends Record<string, any>>({
 
     // 2. Check DÍAS / DÍAS SIN CAPITALIZAR text & badge colors
     const dayVal =
-      typeof row.diasSinCapitalizar === 'number'
+      typeof row.diasSinCapitalizar === 'number' && hasFechaFinConstruccion
         ? row.diasSinCapitalizar
         : typeof row.dias === 'number'
         ? row.dias

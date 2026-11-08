@@ -10,3 +10,8 @@
 **Motivo**: Garantizar consistencia visual y reducir la duplicación de lógica de filtrado y presentación tabular.
 **Trade-off**: Requiere mapeo de columnas y configuración de props específicas del módulo.
 
+## [2026-11-08] Cálculo de Días sin Capitalizar Exclusivo por Fecha de Término
+**Decisión**: Contar los días sin capitalizar únicamente si la obra cuenta con Fecha de Término oficial (`fechaFinConstruccion` / `fechaTermino`), excluyendo `fechaTerminoCampo`.
+**Motivo**: La fecha de término en campo solo indica finalización de trabajos físicos en sitio, mientras que los días sin capitalizar miden el tiempo de rezago contable a partir de la fecha de término administrativo/oficial de la obra.
+**Trade-off**: Las obras con solo fecha de término en campo se listan en capitalización pero no computan días de rezago ni activan alertas cromáticas de semáforo hasta contar con fecha de término oficial.
+

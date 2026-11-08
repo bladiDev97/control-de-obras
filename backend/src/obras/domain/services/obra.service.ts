@@ -124,10 +124,17 @@ export class ObraService {
 
     return obras.map((obra) => {
       const id = obra.sk ? obra.sk.replace('obra#', '') : '';
-      const diasSinCapitalizar = this.calculateDaysSinceTermino(
-        obra.fechaFinConstruccion,
-        obra.fechaCapitalizacion,
-      );
+      const rawObra = obra as any;
+      const fechaTerm =
+        (obra.fechaFinConstruccion && obra.fechaFinConstruccion.trim() !== '')
+          ? obra.fechaFinConstruccion
+          : (rawObra.fechaTermino && String(rawObra.fechaTermino).trim() !== '')
+          ? rawObra.fechaTermino
+          : undefined;
+
+      const diasSinCapitalizar = fechaTerm
+        ? this.calculateDaysSinceTermino(fechaTerm, obra.fechaCapitalizacion)
+        : undefined;
 
       const isAdmonContract = obra.contrato && (obra.contrato.toUpperCase() === 'ADMON' || obra.contrato.toUpperCase().includes('ADMINISTRAC'));
       const contract = obra.contrato && !isAdmonContract ? contractMap.get(obra.contrato) : null;
@@ -181,11 +188,19 @@ export class ObraService {
       })
       .map((obra) => {
         const rawObra = obra as any;
-        const fechaTerm = obra.fechaFinConstruccion || rawObra.fechaTermino || obra.fechaTerminoCampo;
-        const diasSinCapitalizar = this.calculateDaysSinceTermino(
-          fechaTerm,
-          obra.fechaCapitalizacion,
-        );
+        // Solo contar días sin capitalizar si tiene fecha de término (fechaFinConstruccion / fechaTermino),
+        // no si solo tiene fecha de término en campo (fechaTerminoCampo).
+        const fechaTerm =
+          (obra.fechaFinConstruccion && obra.fechaFinConstruccion.trim() !== '')
+            ? obra.fechaFinConstruccion
+            : (rawObra.fechaTermino && String(rawObra.fechaTermino).trim() !== '')
+            ? rawObra.fechaTermino
+            : undefined;
+
+        const diasSinCapitalizar = fechaTerm
+          ? this.calculateDaysSinceTermino(fechaTerm, obra.fechaCapitalizacion)
+          : undefined;
+
         return {
           ...obra,
           diasSinCapitalizar,
@@ -197,10 +212,17 @@ export class ObraService {
   public async getOne(pk: string, id: string): Promise<IObra> {
     const keys: IGeneric = { pk, sk: id };
     const obra = await this.obraRepository.obraDetail(keys);
-    const diasSinCapitalizar = this.calculateDaysSinceTermino(
-      obra.fechaFinConstruccion,
-      obra.fechaCapitalizacion,
-    );
+    const rawObra = obra as any;
+    const fechaTerm =
+      (obra.fechaFinConstruccion && obra.fechaFinConstruccion.trim() !== '')
+        ? obra.fechaFinConstruccion
+        : (rawObra.fechaTermino && String(rawObra.fechaTermino).trim() !== '')
+        ? rawObra.fechaTermino
+        : undefined;
+
+    const diasSinCapitalizar = fechaTerm
+      ? this.calculateDaysSinceTermino(fechaTerm, obra.fechaCapitalizacion)
+      : undefined;
     return {
       ...obra,
       id,
@@ -1676,15 +1698,15 @@ export class ObraService {
 
   // --- Helper Methods ---
 
-  private calculateDaysSinceTermino(fechaTerminoCampo?: string, fechaCapitalizacion?: string): number {
-    if (!fechaTerminoCampo || fechaTerminoCampo.trim() === '') return 0;
+  private calculateDaysSinceTermino(fechaTermino?: string, fechaCapitalizacion?: string): number {
+    if (!fechaTermino || fechaTermino.trim() === '') return 0;
     if (fechaCapitalizacion && fechaCapitalizacion.trim() !== '') return 0;
 
     try {
-      const termino = new Date(fechaTerminoCampo);
-      if (isNaN(termino.getTime())) return 0;
-      const today = new Date();
-      const diffTime = today.getTime() - termino.getTime();
+      const ts = this.parseDateToTimestamp(fechaTermino);
+      if (ts <= 0) return 0;
+      const today = new Date().getTime();
+      const diffTime = today - ts;
       if (diffTime < 0) return 0;
       return Math.floor(diffTime / (1000 * 60 * 60 * 24));
     } catch {
